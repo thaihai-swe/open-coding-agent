@@ -4,7 +4,7 @@ Capture only decisions needed to classify and route the feature.
 
 ## Intake Summary
 
-- Input type: `new_spec | change_request | maintenance | harness_improvement`
+- Input type: `new_spec | spec_slice | change_request | new_initiative | maintenance | harness_improvement`
 - One-line restatement:
 - Profile: `Simple | Moderate | Complex`
 - Why now:

@@ -7,3 +7,5 @@ from .chat_message import ChatMessage
 class ProviderResponse:
     message: ChatMessage
     finish_reason: Optional[str] = None
+    termination_reason: str = "completed"
+

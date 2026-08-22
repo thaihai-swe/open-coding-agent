@@ -17,7 +17,7 @@ When the user is frustrated with agent output, the problem is almost always in t
 | "It declares done too early" | Verification | No verification step or checklist | Add AC with proof command, run `/harness-verify` | `/harness-verify` |
 | "It uses wrong patterns" | Context | Competing patterns, no guidance on which to use | Document which pattern when in domain pack | `/context-memory` → domain pack |
 | "Output quality is inconsistent" | Feedback | No evaluation/feedback loop | Add eval rubric, run multi-pass eval | `/harness-maintain eval` |
-| "It takes forever and costs too much" | Architecture | Over-engineered harness or wrong approach | Simplify — remove harness components that don't add value | See `core-zero/rules/ponytail.md` § Harness Simplification |
+| "It takes forever and costs too much" | Architecture | Over-engineered harness or wrong approach | Simplify — remove harness components that don't add value | See `## When to Simplify` below |
 
 ## Diagnosis Process
 

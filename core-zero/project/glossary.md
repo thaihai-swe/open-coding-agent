@@ -17,6 +17,10 @@ domain pack rather than a second project glossary.
 
 | Term | Definition | Used In |
 |-|-|-|
+| Provider contract | Structural complete interface: `complete(messages, tools, stream) → ProviderResponse | stream deltas`. Not a specific vendor SDK. | `1-the-agent-loop` spec REQ-001 |
+| max_turns | Cap on provider completions inside one user prompt. Default 8. Distinct from the number of user prompts. | `1-the-agent-loop` spec REQ-006 |
+| Termination reason | Why a user turn stopped: `completed` (no tool calls left) or `max_turns_reached` | `1-the-agent-loop` spec US3 |
+| Agent loop | Repeat complete → optional tool execute → append result until no tool calls or max_turns | ShareAI s01; `QueryEngine.turn` |
 | QueryEngine | Application loop: persist user turn, stream provider completion, run authorized tools, persist again | `src/application/query_engine.py` |
 | OpenAIProvider | Stdlib HTTP + SSE client for `{api_base}/chat/completions`; not the official OpenAI SDK | `src/infrastructure/providers/openai.py` |
 | SessionStore | JSON persistence of chat history under `.sessions/<id>.json` with key redaction | `src/infrastructure/session_store.py` |

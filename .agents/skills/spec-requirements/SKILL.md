@@ -55,7 +55,7 @@ Defines functional requirements (`REQ-*`), testable acceptance criteria (`AC-*`)
    - Do not hand-edit `- Phase:`. The envelope creates `status.md` if needed and sets `Specifying`.
 
 2. **Intake & Context Alignment**:
-   - Classify input type (`new_spec`, `spec_slice`, `change_request`, `new_initiative`, `maintenance`) in `status.md` per `references/intake.md`.
+   - Classify input type (`new_spec`, `spec_slice`, `change_request`, `new_initiative`, `maintenance`, `harness_improvement`) in `status.md` per `references/intake.md`.
    - Supply the feature request as `--intent` to context loading. CoreZero discovers nested domain packs by matching that intent against `triggers:` in `core-zero/memories/domain/<name>/glossary.md`.
    - Read research findings in `analysis.md` if available.
    - Check `core-zero/memories/repo/adr-log.md`. If proposed spec contradicts a locked ADR, write `[:HALT ADR CONFLICT: ADR-NNN]` and block handoff.

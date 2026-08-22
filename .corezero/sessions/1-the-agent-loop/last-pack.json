@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "skill": "harness-verify",
+  "feature": "1-the-agent-loop",
+  "estimated_tokens": 3134,
+  "selected": [
+    {
+      "path": "core-zero/memories/repo/core-policies.md",
+      "fingerprint": "47445689690d1d07f74bc28e80ca6edd6c4ef334dddb7de52a484bd39ee631d1"
+    },
+    {
+      "path": "core-zero/rules/caveman.md",
+      "fingerprint": "6c7d369602ec2ab048cc85475faa7a7637b497ebf9515e97610eed2870f7b08f"
+    },
+    {
+      "path": "artifacts/features/1-the-agent-loop/plan.md",
+      "fingerprint": "e478566b5ee1cd1715a14d6e0a219563cc45cdac75e05b3e82dd04885f883210"
+    },
+    {
+      "path": "artifacts/features/1-the-agent-loop/tasks.md",
+      "fingerprint": "5accc93843588f795a7b723e4646b0581acbb8b75608885fd4b6b2c08f7e8dc5"
+    },
+    {
+      "path": ".corezero/sessions/1-the-agent-loop/session.md",
+      "fingerprint": "b97f87486a13366c44814ce0a0f2b1627b686033a172c974e56abda6cf90d123"
+    },
+    {
+      "path": "artifacts/features/1-the-agent-loop/spec.md",
+      "fingerprint": "2968a73adbbba9adbeeb937dfdcc1c1e7796e8907e266a26d5978632c4c9c46a"
+    },
+    {
+      "path": "artifacts/features/1-the-agent-loop/status.md",
+      "fingerprint": "482074f16f90c19c06b47222fe4239681151218b1709aa1bfe54069a213ca3f9"
+    },
+    {
+      "path": "core-zero/project/harness-config.yaml",
+      "fingerprint": "1fa2cbfec0445781a8c08bf8c7980701ddf1571802fdec8b08e7490dd413d7f6"
+    },
+    {
+      "path": "core-zero/rules/security.md",
+      "fingerprint": "d8a906cc7b9acbe63856730ba03fe0416f6e304731aa996babff02c2f7a686cc"
+    },
+    {
+      "path": "documents/BUILDING_A_CODING_AGENT.md",
+      "fingerprint": "6d80cfcd96a0aa08e88d110acbde398fab9a7713265f6de1bfa058a012d9598f"
+    },
+    {
+      "path": "EXTERNAL_SKILLS.md",
+      "fingerprint": "122672eae9003d68072e4d0cf0b8e9959fd4761f2e18cc1691e8eb847ecd64c3"
+    },
+    {
+      "path": "manifest.json",
+      "fingerprint": "fda0497f0b169c3f9251589843d3366cfa47ec98d37a81ca816e1f9a0e811273"
+    },
+    {
+      "path": "AGENTS.md",
+      "fingerprint": "ffe0723997584e6f305c44dfa1a7023b413d77adcd4a8d17273960b650bea877"
+    }
+  ],
+  "fingerprints": {
+    "core-zero/memories/repo/core-policies.md": "47445689690d1d07f74bc28e80ca6edd6c4ef334dddb7de52a484bd39ee631d1",
+    "core-zero/rules/caveman.md": "6c7d369602ec2ab048cc85475faa7a7637b497ebf9515e97610eed2870f7b08f",
+    "artifacts/features/1-the-agent-loop/plan.md": "e478566b5ee1cd1715a14d6e0a219563cc45cdac75e05b3e82dd04885f883210",
+    "artifacts/features/1-the-agent-loop/tasks.md": "5accc93843588f795a7b723e4646b0581acbb8b75608885fd4b6b2c08f7e8dc5",
+    ".corezero/sessions/1-the-agent-loop/session.md": "b97f87486a13366c44814ce0a0f2b1627b686033a172c974e56abda6cf90d123",
+    "artifacts/features/1-the-agent-loop/spec.md": "2968a73adbbba9adbeeb937dfdcc1c1e7796e8907e266a26d5978632c4c9c46a",
+    "artifacts/features/1-the-agent-loop/status.md": "482074f16f90c19c06b47222fe4239681151218b1709aa1bfe54069a213ca3f9",
+    "core-zero/project/harness-config.yaml": "1fa2cbfec0445781a8c08bf8c7980701ddf1571802fdec8b08e7490dd413d7f6",
+    "core-zero/rules/security.md": "d8a906cc7b9acbe63856730ba03fe0416f6e304731aa996babff02c2f7a686cc",
+    "documents/BUILDING_A_CODING_AGENT.md": "6d80cfcd96a0aa08e88d110acbde398fab9a7713265f6de1bfa058a012d9598f",
+    "EXTERNAL_SKILLS.md": "122672eae9003d68072e4d0cf0b8e9959fd4761f2e18cc1691e8eb847ecd64c3",
+    "manifest.json": "fda0497f0b169c3f9251589843d3366cfa47ec98d37a81ca816e1f9a0e811273",
+    "AGENTS.md": "ffe0723997584e6f305c44dfa1a7023b413d77adcd4a8d17273960b650bea877"
+  }
+}

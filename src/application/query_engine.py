@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Any
 
 from ..domain.errors import ProviderError
 from ..domain.models import ChatMessage, ProviderResponse, ToolCall, ToolResult
+from ..domain.provider import Provider
 from ..infrastructure.session_store import SessionStore
 from ..tools import invoke, registry
 from ..tools.types import Risk
@@ -13,18 +15,21 @@ Authorize = Callable[[str, dict[str, Any]], bool]
 
 
 class QueryEngine:
-    def __init__(self, provider: Any, session: SessionStore, session_id: str, authorize: Authorize, on_event: Callable[[dict[str, Any]], None] | None = None) -> None:
+    def __init__(self, provider: Provider, session: SessionStore, session_id: str, authorize: Authorize, on_event: Callable[[dict[str, Any]], None] | None = None, max_turns: int = 8) -> None:
         self.provider = provider
         self.session = session
         self.session_id = session_id
         self.authorize = authorize
         self.on_event = on_event or (lambda event: None)
+        self.max_turns = max_turns
         self.history = session.load(session_id) if session_id in session.list() else []
 
     def turn(self, prompt: str) -> ProviderResponse:
         self.history.append(ChatMessage("user", prompt))
         self._save()
-        while True:
+        response: ProviderResponse | None = None
+        turn_count = 0
+        while turn_count < self.max_turns:
             try:
                 completion = self.provider.complete(self.history, _tool_schemas(), stream=True)
                 if isinstance(completion, ProviderResponse):
@@ -36,14 +41,16 @@ class QueryEngine:
             except Exception as error:
                 self._save()
                 raise ProviderError(f"Provider completion failed: {error}") from error
+            turn_count += 1
             self.history.append(response.message)
             self._save()
             if not response.message.tool_calls:
-                return response
+                return replace(response, termination_reason="completed")
             for call in response.message.tool_calls:
                 result = self._run_call(call)
                 self.history.append(ChatMessage("tool", tool_result=result))
                 self._save()
+        return replace(response, termination_reason="max_turns_reached")
 
     def _collect_stream(self, deltas: Any) -> ProviderResponse:
         content = []

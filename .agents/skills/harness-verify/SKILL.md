@@ -67,6 +67,7 @@ This skill is the **sole authority** for validating AC completion and transition
 
 4. **Security & Review Provider Audits**:
    - Audit against `core-policies.md` `## Security Policy`.
+   - Record the review-provider outcome from `verify` in `review.md` `## Provider Review`. The kit default is `providers.review.active: none` and `mode: optional`: no `ocr` binary is required, and a missing provider is `deferred`, not a Fail. Two-axis review above is the required review. Enable `open-code-review` in `core-zero/project/tool-providers.md` only after local `ocr` setup. Set `mode: required` only when this project must fail closeout without a successful `ocr review`.
 
 5. **Memory Sync Trigger & Final Closeout**:
    - When all verification evidence passes, record `Verification passed; sync pending`.

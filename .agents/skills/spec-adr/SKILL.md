@@ -62,7 +62,7 @@ Can be invoked conditionally from `/spec-requirements`, `/spec-plan`, `/spec-tas
    - Populate problem statement, evaluated options with pros/cons, decision outcome, and long-term consequences using `references/adr-template.md` or `references/adr-lightweight-template.md`.
 
 4. **Append to ADR Log Ledger**:
-   - Update `core-zero/memories/repo/adr-log.md` by appending a new entry conforming to `references/adr-log-template.md`.
+   - Update `core-zero/memories/repo/adr-log.md` by appending a new entry conforming to its `## Entry Template`.
    - Record status as `Proposed` or `Accepted`. Link entry to `spec.md` or `plan.md`.
 
 5. **Handoff & Terminal Return**:

@@ -52,7 +52,10 @@ skills:
     profile: planning
     feature: required
     prerequisites: [spec.md]
-    feature_artifacts: [status.md, spec.md, {kind: session, name: session.md}]
+    feature_artifacts:
+      - status.md
+      - spec.md
+      - {kind: "session", name: "session.md"}
     writes:
       - plan.md
       - {path: status.md, required: false}
@@ -69,7 +72,11 @@ skills:
     profile: planning
     feature: required
     prerequisites: [spec.md, plan.md]
-    feature_artifacts: [status.md, spec.md, plan.md, {kind: session, name: session.md}]
+    feature_artifacts:
+      - status.md
+      - spec.md
+      - plan.md
+      - {kind: "session", name: "session.md"}
     writes:
       - tasks.md
       - {path: status.md, required: false}
@@ -84,7 +91,12 @@ skills:
     profile: implement
     feature: required
     prerequisites: [spec.md, plan.md, tasks.md]
-    feature_artifacts: [status.md, spec.md, plan.md, tasks.md, {kind: session, name: session.md}]
+    feature_artifacts:
+      - status.md
+      - spec.md
+      - plan.md
+      - tasks.md
+      - {kind: "session", name: "session.md"}
     writes:
       - {path: tasks.md, required: false}
       - {path: status.md, required: false}
@@ -101,7 +113,12 @@ skills:
     profile: verify
     feature: required
     prerequisites: [spec.md, plan.md, tasks.md]
-    feature_artifacts: [status.md, tasks.md, plan.md, spec.md, {kind: session, name: session.md}]
+    feature_artifacts:
+      - status.md
+      - tasks.md
+      - plan.md
+      - spec.md
+      - {kind: "session", name: "session.md"}
     writes:
       - review.md
       - {path: status.md, required: false}
@@ -114,7 +131,10 @@ skills:
     profile: compact
     feature: optional
     prerequisites: []
-    feature_artifacts: [status.md, session-extracts.md, {kind: session, name: session.md}]
+    feature_artifacts:
+      - status.md
+      - session-extracts.md
+      - {kind: "session", name: "session.md"}
     writes:
       - core-zero/memories/repo
       - core-zero/memories/domain

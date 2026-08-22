@@ -1,7 +1,3 @@
----
-schema_version: 1
----
-
 # Feature Status: `<slug>`
 
 - Phase: `Researching | ResearchComplete | Specifying | SpecApproved | Planning | TaskPlanning | PlanApproved | Implementing | Verifying | Done | NeedsClarification | Blocked | Replanning | ChangesRequested | Abandoned`

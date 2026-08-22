@@ -47,7 +47,6 @@ Establishes the repository baseline for the harness before feature work begins. 
   - `core-zero/project/architecture.md`
   - `core-zero/project/tech-stack.md`
   - `core-zero/project/harness-config.yaml`
-  - (Brownfield only): `core-zero/memories/repo/brownfield/brownfield-map.md`
 - **Session State**: N/A for bootstrap phase; prepares workspace for session initialization.
 
 ## Step-by-Step Execution Workflow
@@ -60,7 +59,7 @@ Establishes the repository baseline for the harness before feature work begins. 
 2. **Archaeology Sweep (Phase A)**:
    - Detect greenfield vs. brownfield using stack markers (`package.json`→node, `pyproject.toml`→python, `go.mod`→go, `Cargo.toml`→rust, etc.). Record hits in `core-zero/project/tech-stack.md`.
    - *Greenfield*: If empty repo or kit-only files, skip archaeology pass.
-   - *Brownfield*: Follow `references/brownfield-mode.md` to conduct a read-only archaeology sweep using subagents. Write findings to `core-zero/memories/repo/brownfield/brownfield-map.md`. Record baseline test command and high-risk paths. Option: use `references/rules-bootstrap.md` for convention proposals.
+   - *Brownfield*: Follow `references/brownfield-mode.md` to conduct a read-only archaeology sweep using subagents. Record findings directly in `core-zero/project/tech-stack.md`, `core-zero/project/architecture.md`, `core-zero/memories/repo/core-policies.md` (`## Known Broken Tests`, `## Security Policy`), and `core-zero/memories/repo/project-knowledge-base.md` (`## Preserved Behavior Baseline`). Option: use `references/rules-bootstrap.md` for convention proposals.
 
 3. **Memory Customization & Gate Setup (Phase B)**:
    - Separate facts from decisions. Discover stack, entrypoints, existing gates, and instruction files through inspection; ask the adopter only for product identity, SLOs, trust boundaries, and gate confirmation.
