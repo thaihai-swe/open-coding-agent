@@ -1,0 +1,118 @@
+schema_version: 1
+
+phases:
+  - name: Bootstrap
+    preconditions: []
+  - name: Spec
+    preconditions:
+      - artifact: spec.md
+        check: exists
+      - artifact: features/<slug>/status.md
+        check: exists
+  - name: Plan
+    preconditions:
+      - artifact: spec.md
+        check: exists
+  - name: Implement
+    preconditions:
+      - artifact: plan.md
+        check: exists
+      - artifact: tasks.md
+        check: exists
+  - name: Verify
+    preconditions:
+      - artifact: spec.md
+        check: exists
+      - artifact: tasks.md
+        check: exists
+  - name: Done
+    preconditions:
+      - artifact: review.md
+        check: exists
+      - artifact: session-extracts.md
+        check: exists
+
+states:
+  - Researching
+  - ResearchComplete
+  - Specifying
+  - SpecApproved
+  - Planning
+  - TaskPlanning
+  - PlanApproved
+  - Implementing
+  - Verifying
+  - Done
+  - NeedsClarification
+  - Blocked
+  - Replanning
+  - ChangesRequested
+  - Abandoned
+
+phase_mapping:
+  Researching: Spec
+  ResearchComplete: Spec
+  Specifying: Spec
+  SpecApproved: Spec
+  Planning: Plan
+  TaskPlanning: Plan
+  PlanApproved: Plan
+  Implementing: Implement
+  Verifying: Verify
+  Done: Done
+  NeedsClarification: Spec
+  Blocked: Implement
+  Replanning: Plan
+  ChangesRequested: Verify
+  Abandoned: Done
+
+transitions:
+  - {from: Researching, to: ResearchComplete}
+  - {from: ResearchComplete, to: Specifying}
+  - {from: Specifying, to: SpecApproved}
+  - {from: Specifying, to: NeedsClarification}
+  - {from: NeedsClarification, to: Specifying}
+  - {from: SpecApproved, to: Planning}
+  - {from: Planning, to: TaskPlanning}
+  - {from: TaskPlanning, to: PlanApproved}
+  - {from: PlanApproved, to: Implementing}
+  - {from: Implementing, to: Verifying}
+  - {from: Implementing, to: Planning}
+  - {from: Implementing, to: Specifying}
+  - {from: Implementing, to: Replanning}
+  - {from: Verifying, to: Done}
+  - {from: Verifying, to: ChangesRequested}
+  - {from: Verifying, to: Planning}
+  - {from: Verifying, to: Implementing}
+  - {from: ChangesRequested, to: Replanning}
+  - {from: ChangesRequested, to: Implementing}
+  - {from: ChangesRequested, to: Planning}
+  - {from: Replanning, to: Planning}
+  - {from: Replanning, to: TaskPlanning}
+  - {from: Researching, to: Blocked}
+  - {from: ResearchComplete, to: Blocked}
+  - {from: Specifying, to: Blocked}
+  - {from: SpecApproved, to: Blocked}
+  - {from: Planning, to: Blocked}
+  - {from: TaskPlanning, to: Blocked}
+  - {from: PlanApproved, to: Blocked}
+  - {from: Replanning, to: Blocked}
+  - {from: Implementing, to: Blocked}
+  - {from: Verifying, to: Blocked}
+  - {from: Blocked, to: Specifying}
+  - {from: Blocked, to: Planning}
+  - {from: Blocked, to: Implementing}
+  - {from: Blocked, to: Verifying}
+  - {from: Researching, to: Abandoned}
+  - {from: ResearchComplete, to: Abandoned}
+  - {from: Specifying, to: Abandoned}
+  - {from: NeedsClarification, to: Abandoned}
+  - {from: SpecApproved, to: Abandoned}
+  - {from: Planning, to: Abandoned}
+  - {from: TaskPlanning, to: Abandoned}
+  - {from: PlanApproved, to: Abandoned}
+  - {from: Replanning, to: Abandoned}
+  - {from: Implementing, to: Abandoned}
+  - {from: Verifying, to: Abandoned}
+  - {from: ChangesRequested, to: Abandoned}
+  - {from: Blocked, to: Abandoned}

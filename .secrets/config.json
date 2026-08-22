@@ -1,0 +1,5 @@
+{
+  "openai_api_base": "http://localhost:20128/v1",
+  "openai_api_key": "sk-9b3a49569d145b1c-xl93wy-4acc38b2",
+  "openai_model": "vip-free"
+}
