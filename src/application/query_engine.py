@@ -10,9 +10,11 @@ from ..domain.models import ChatMessage, ProviderResponse, ToolCall, ToolResult
 from ..domain.provider import Provider
 from ..infrastructure.session_store import SessionStore
 from ..tools import invoke, registry
+from ..tools import permission_rules
+from ..tools.permissions import AuthorizeDecision, hard_deny_reason
 from ..tools.types import Risk
 
-Authorize = Callable[[str, dict[str, Any]], bool]
+Authorize = Callable[[str, dict[str, Any]], AuthorizeDecision]
 
 
 class QueryEngine:
@@ -72,10 +74,28 @@ class QueryEngine:
             if not isinstance(call.arguments, dict):
                 results[index] = ToolResult(call.id, {"error": "Tool arguments must be an object."}, True)
                 continue
-            if tool.risk_level in {Risk.HIGH, Risk.MEDIUM} and not self.authorize(call.name, call.arguments):
-                self.on_event({"type": "tool_denied", "name": call.name, "arguments": call.arguments})
-                results[index] = ToolResult(call.id, {"error": "Tool execution denied by user."}, True)
+            deny_reason = hard_deny_reason(tool, call.arguments)
+            if deny_reason:
+                results[index] = ToolResult(call.id, {"error": deny_reason}, True)
                 continue
+            if tool.risk_level in {Risk.HIGH, Risk.MEDIUM}:
+                matched = permission_rules.match_rule(call.name, call.arguments)
+                if matched == "allow":
+                    approved.append((index, call, tool))
+                    continue
+                if matched == "deny":
+                    self.on_event({"type": "tool_denied", "name": call.name, "arguments": call.arguments})
+                    results[index] = ToolResult(call.id, {"error": "Tool execution denied by user."}, True)
+                    continue
+                decision = self.authorize(call.name, call.arguments)
+                if decision.persist:
+                    permission_rules.upsert_rule(
+                        call.name, call.arguments, "allow" if decision.allow else "deny"
+                    )
+                if not decision.allow:
+                    self.on_event({"type": "tool_denied", "name": call.name, "arguments": call.arguments})
+                    results[index] = ToolResult(call.id, {"error": "Tool execution denied by user."}, True)
+                    continue
             approved.append((index, call, tool))
         if approved:
             self.on_event({"type": "status", "message": "running tools"})

@@ -103,6 +103,21 @@ class TestProvider(unittest.TestCase):
             with self.assertRaises(ProviderError):
                 OpenAIProvider()
 
+    def test_ac028_missing_default_config_error_names_cda_secrets_path(self) -> None:
+        # AC-028 / REQ-020 / T-008
+        import tempfile
+        original_cwd = os.getcwd()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            try:
+                os.chdir(temp_dir)
+                with patch.dict(os.environ, {}, clear=True):
+                    with self.assertRaises(ProviderError) as ctx:
+                        OpenAIProvider()
+                    self.assertIn(".cda/.secrets/config.json", str(ctx.exception))
+                    self.assertNotIn("configure .secrets/config.json.", str(ctx.exception))
+            finally:
+                os.chdir(original_cwd)
+
 
 if __name__ == "__main__":
     unittest.main()

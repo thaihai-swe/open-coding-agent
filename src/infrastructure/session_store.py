@@ -10,7 +10,7 @@ from ..domain.models import ChatMessage, ToolCall, ToolResult
 
 
 class SessionStore:
-    def __init__(self, directory: str | Path = ".sessions") -> None:
+    def __init__(self, directory: str | Path = ".cda/.sessions") -> None:
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
 

@@ -1,13 +1,11 @@
 from typing import Any
 from ..registry import Tool, registry
-from ..types import PROTECTED_KEYS, ConfigAction
+from ..types import ConfigAction
 
 
 def config(action: str, key: str, value: Any = None) -> Any:
     if action not in {ConfigAction.GET, ConfigAction.SET}:
         raise ValueError("action must be get or set")
-    if action == ConfigAction.SET and key in PROTECTED_KEYS:
-        raise PermissionError("Protected key")
     return value if action == ConfigAction.SET else "config_value"
 
 

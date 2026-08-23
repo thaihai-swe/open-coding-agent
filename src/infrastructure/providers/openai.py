@@ -18,7 +18,7 @@ class OpenAIProvider:
         self.api_key = api_key if api_key is not None else os.environ.get("OPENAI_API_KEY", cfg.get("openai_api_key", ""))
         self.model = model if model is not None else os.environ.get("OPENAI_MODEL", cfg.get("openai_model", ""))
         if not self.api_base or not self.api_key or not self.model:
-            raise ProviderError("Set OPENAI_API_BASE, OPENAI_API_KEY, and OPENAI_MODEL or configure .secrets/config.json.")
+            raise ProviderError("Set OPENAI_API_BASE, OPENAI_API_KEY, and OPENAI_MODEL or configure .cda/.secrets/config.json.")
 
     def complete(self, messages: list[ChatMessage], tools: list[dict[str, Any]], stream: bool = False) -> ProviderResponse | Iterable[StreamDelta]:
         url = self.api_base.rstrip("/") + "/chat/completions"
@@ -90,7 +90,7 @@ class OpenAIProvider:
 
 
 def _load_config(config_path: str | Path | None) -> dict[str, str]:
-    path = Path(config_path or os.environ.get("CONFIG_FILE", ".secrets/config.json"))
+    path = Path(config_path or os.environ.get("CONFIG_FILE", ".cda/.secrets/config.json"))
     if not path.exists():
         return {}
     try:

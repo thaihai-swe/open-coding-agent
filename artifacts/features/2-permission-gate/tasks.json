@@ -1,0 +1,203 @@
+{
+  "source": "tasks.md",
+  "generated_at": "2026-08-23T10:46:13",
+  "errors": [],
+  "task_count": 9,
+  "tasks": [
+    {
+      "id": "T-001",
+      "header": "- [x] T-001 [US1] `src/tools/types.py`, `src/tools/permissions.py`, `tests/tools_check.py` \u2014 add `DENY_LIST` and `hard_deny_reason`; `check_permission` consults it before the HIGH bypass short-circuit; `invoke` of deny-listed `bash`/`powershell` returns `Blocked:` + pattern and does not start `subprocess.run`; non-listed `echo ping` with bypass still runs; without bypass still `Permission denied for high-risk tool`; `repl` `code` containing `sudo` is not deny-listed; prove all seven REQ-006 substrings",
+      "status": "Done",
+      "done": true,
+      "depends": [],
+      "evidence": [
+        "`python3 tests/tools_check.py`",
+        "python3 tests/tools_check.py exit 0; 16 tests OK. AC-001 sudo bash + bypass returns Blocked: sudo and subprocess.run not called; AC-002 powershell shutdown Blocked:; AC-003 echo ping + bypass succeeds; AC-004 echo ping without bypass Permission denied for high-risk tool; AC-005 repl code sudo = 1 not deny-listed; AC-017 all seven DENY_LIST patterns blocked with bypass. hard_deny_reason consulted before HIGH bypass."
+      ],
+      "acceptance_criteria": [
+        "AC-005",
+        "AC-003",
+        "AC-001",
+        "AC-004",
+        "AC-002",
+        "AC-017"
+      ]
+    },
+    {
+      "id": "T-002",
+      "header": "- [x] T-002 [US3] `src/tools/permissions.py`, `src/tools/handlers/settings.py`, `tests/tools_check.py` \u2014 extend `hard_deny_reason` for MEDIUM `file_path`/`key` vs `PROTECTED_PATHS` and `config` SET vs `PROTECTED_KEYS`; `config` GET is not hard-denied; remove the handler `PROTECTED_KEYS` raise so that list is only live in `hard_deny_reason`; `write_file` `.env` is `Protected path blocked:` and not written",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-001"
+      ],
+      "evidence": [
+        "`python3 tests/tools_check.py`",
+        "python3 tests/tools_check.py exit 0; 20 tests OK. AC-006 write_file .env returns Protected path blocked: and does not write file; AC-007 config set secret returns Protected key blocked:; config get secret returns success; config set .gitconfig returns Protected path blocked:; settings.py duplicate raise removed."
+      ],
+      "acceptance_criteria": [
+        "AC-006",
+        "AC-007"
+      ]
+    },
+    {
+      "id": "T-003",
+      "header": "- [x] T-003 [US1] `src/application/query_engine.py`, `tests/query_engine_check.py` \u2014 `_run_batch` calls `hard_deny_reason` before authorize; deny-listed `bash` does not call authorize, does not emit `tool_denied`, records `Blocked:` + pattern, and does not run the handler; listed hard-deny then LOW `read_file` keeps both results in order",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-001"
+      ],
+      "evidence": [
+        "`python3 tests/query_engine_check.py`",
+        "python3 tests/query_engine_check.py exit 0; 15 tests OK. AC-008 deny-listed bash sudo id skips authorize, no tool_denied, Blocked: sudo, handler not run; AC-009 LOW read_file does not authorize; AC-013 hard-deny bash then LOW read_file keeps listed order and sibling result."
+      ],
+      "acceptance_criteria": [
+        "AC-009",
+        "AC-013",
+        "AC-008"
+      ]
+    },
+    {
+      "id": "T-004",
+      "header": "- [x] T-004 [US3] `src/application/query_engine.py`, `tests/query_engine_check.py` \u2014 turn path uses the same `hard_deny_reason` for `write_file` `id_rsa` and `config` SET `secret`: authorize is not called, no file write, no key set",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-002",
+        "T-003"
+      ],
+      "evidence": [
+        "`python3 tests/query_engine_check.py`",
+        "python3 tests/query_engine_check.py exit 0; 17 tests OK. AC-015 write_file id_rsa skips authorize, Protected path blocked:, file not written; AC-016 config SET secret skips authorize, handler not called, error result recorded."
+      ],
+      "acceptance_criteria": [
+        "AC-015",
+        "AC-016"
+      ]
+    },
+    {
+      "id": "T-005",
+      "header": "- [x] T-005 [US2] `src/tools/permissions.py`, `src/application/query_engine.py`, `src/presentation/terminal_ui.py`, `tests/terminal_ui_check.py`, `tests/query_engine_check.py` \u2014 expand: add `AuthorizeDecision(allow, persist)`; `Authorize` returns it (no bool adapter); `TerminalUI.authorize` numbered prompt; after trim `1`/`2` allow this call, `3`/`4`/empty/`a`/`approve`/other deny this call; QueryEngine uses `.allow` only; migrate every existing `True`/`False` authorize lambda (helper `_once(allow)`); once-allow HIGH still injects `bypass_permissions`; user deny still `tool_denied` + `\"Tool execution denied by user.\"` and does not skip siblings",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-004"
+      ],
+      "evidence": [
+        "`python3 tests/terminal_ui_check.py` && `python3 tests/query_engine_check.py`",
+        "python3 tests/terminal_ui_check.py exit 0 (17 OK); python3 tests/query_engine_check.py exit 0 (18 OK). AC-012 numbered 1-4 prompt; 1/2 allow this call, 3/4/empty/a/approve/other deny; persist flags 2 and 4. QueryEngine uses .allow only; _once helper migrated all bool lambdas; AC-010 once-allow HIGH injects bypass_permissions; AC-011/AC-014 user deny tool_denied + sibling isolation."
+      ],
+      "acceptance_criteria": [
+        "AC-014",
+        "AC-011",
+        "AC-010",
+        "AC-012"
+      ]
+    },
+    {
+      "id": "T-006",
+      "header": "- [x] T-006 [US5] `src/tools/permission_rules.py`, `src/application/query_engine.py`, `tests/query_engine_check.py` \u2014 contract: QueryEngine reads `.persist`; `match_rule` then ask then `upsert_rule` for MEDIUM/HIGH that are not hard-denied; tests `chdir` a temp cwd; `2` writes allow for `bash`+`command`; `1` does not create the file; `4` later-matches `write_file` `file_path` (any `content`) as user deny; different session id shares the file; sibling same command after `2` prompts once; rules-file allow cannot override deny-listed `sudo`; invalid entries skipped; rule lands at `.cda/.permission_rules/rules.json` not cwd `.permission_rules/`; `invoke` still does not import this module; session JSON gains no permission fields",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-005"
+      ],
+      "evidence": [
+        "`python3 tests/query_engine_check.py`",
+        "python3 tests/query_engine_check.py exit 0; 26 tests OK. AC-018 answer 2 writes allow bash+command to .cda/.permission_rules/rules.json; session JSON messages-only; AC-019 different session id skips ask; AC-020 answer 4 later-matches write_file file_path as user deny; AC-021 answer 1 does not create file; AC-022 sibling same command prompts once; AC-023 rules-file allow cannot override sudo hard deny; AC-025 invalid entries skipped; AC-029 rule not at cwd .permission_rules/; invoke does not import permission_rules."
+      ],
+      "acceptance_criteria": [
+        "AC-019",
+        "AC-022",
+        "AC-021",
+        "AC-025",
+        "AC-023",
+        "AC-029",
+        "AC-020",
+        "AC-018"
+      ]
+    },
+    {
+      "id": "T-007",
+      "header": "- [x] T-007 [US6] `src/infrastructure/session_store.py`, `tests/session_check.py` \u2014 default directory `.cda/.sessions`; save in a temp cwd writes `.cda/.sessions/<id>.json` not cwd `.sessions/<id>.json`; load a messages-only session; a later messages-only save does not add permission-rule fields and does not change an existing `.cda/.permission_rules/rules.json`; with no rules file, matching MEDIUM/HIGH still prompt",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-006"
+      ],
+      "evidence": [
+        "`python3 tests/session_check.py`",
+        "python3 tests/session_check.py exit 0; 4 tests OK. AC-027 default SessionStore() in temp cwd writes .cda/.sessions/<id>.json not cwd .sessions/<id>.json; AC-024 load messages-only session; AC-026 later messages-only save does not add permission-rule fields and does not change existing .cda/.permission_rules/rules.json; with no rules file matching MEDIUM/HIGH still prompt."
+      ],
+      "acceptance_criteria": [
+        "AC-027",
+        "AC-026",
+        "AC-024"
+      ]
+    },
+    {
+      "id": "T-008",
+      "header": "- [x] T-008 [US6] `src/infrastructure/providers/openai.py`, `.gitignore`, `documents/how-to-run.md`, `tests/provider_check.py`, `tests/cli_check.py` \u2014 default config `.cda/.secrets/config.json`; missing-config error text includes that path and does not require cwd `.secrets/config.json`; `CONFIG_FILE` still overrides; add `.cda/` to `.gitignore`; update how-to-run",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-007"
+      ],
+      "evidence": [
+        "`python3 tests/provider_check.py` && `python3 tests/cli_check.py`",
+        "python3 tests/provider_check.py && python3 tests/cli_check.py exit 0; 9 provider tests OK, 5 cli tests OK. AC-028 missing default config ProviderError names .cda/.secrets/config.json and does not require cwd .secrets/config.json; CONFIG_FILE still overrides; AC-030 .gitignore contains .cda/; documents/how-to-run.md updated to point to .cda/.secrets/config.json."
+      ],
+      "acceptance_criteria": [
+        "AC-028",
+        "AC-030"
+      ]
+    },
+    {
+      "id": "T-009",
+      "header": "- [x] T-009 `src/`, `tests/` \u2014 run the full app check pack; fix only regressions caused by this feature",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-008"
+      ],
+      "evidence": [
+        "`python3 -m compileall -q src` && `python3 -m unittest discover -s tests -p '*_check.py'`",
+        "python3 -m compileall -q src exit 0; python3 -m unittest discover -s tests -p '*_check.py' exit 0; 81 tests OK. Full app check pack green after Session 03 slices. No regressions to fix."
+      ],
+      "acceptance_criteria": [
+        "AC-030",
+        "AC-003",
+        "AC-013",
+        "AC-022",
+        "AC-008",
+        "AC-025",
+        "AC-004",
+        "AC-023",
+        "AC-011",
+        "AC-029",
+        "AC-020",
+        "AC-024",
+        "AC-015",
+        "AC-019",
+        "AC-006",
+        "AC-026",
+        "AC-028",
+        "AC-002",
+        "AC-018",
+        "AC-027",
+        "AC-009",
+        "AC-010",
+        "AC-007",
+        "AC-016",
+        "AC-017",
+        "AC-005",
+        "AC-001",
+        "AC-021",
+        "AC-014",
+        "AC-012"
+      ]
+    }
+  ],
+  "markdown_hash": "6992a62e685e6ff579a797d57753db55cba09aa9d063751e7e8463c7599b17ee"
+}

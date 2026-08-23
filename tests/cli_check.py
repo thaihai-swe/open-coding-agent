@@ -43,6 +43,11 @@ class TestCli(unittest.TestCase):
             self.assertEqual(code, 130)
             self.assertTrue(any(Path(temp_dir).glob("*.json")))
 
+    def test_ac030_gitignore_contains_cda_entry(self) -> None:
+        # AC-030 / REQ-021 / T-008
+        gitignore = Path(__file__).resolve().parent.parent / ".gitignore"
+        self.assertIn(".cda/", gitignore.read_text(encoding="utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,12 +16,12 @@
 Create the ignored secret configuration file:
 
 ```bash
-mkdir -p .secrets
-cp documents/config.example.json .secrets/config.json
-chmod 600 .secrets/config.json
+mkdir -p .cda/.secrets
+cp documents/config.example.json .cda/.secrets/config.json
+chmod 600 .cda/.secrets/config.json
 ```
 
-Edit `.secrets/config.json` with your provider settings. The application reads this file by default. You can use another path with `CONFIG_FILE=/path/to/config.json`.
+Edit `.cda/.secrets/config.json` with your provider settings. The application reads this file by default. You can use another path with `CONFIG_FILE=/path/to/config.json`.
 
 Environment variables override JSON values when set: `OPENAI_API_BASE`, `OPENAI_API_KEY`, and `OPENAI_MODEL`.
 

@@ -40,3 +40,13 @@ class MessageStatus(StrEnum):
 TODO_STATUSES = {"pending", "in_progress", "completed"}
 PROTECTED_KEYS = {".env", "secret"}
 PROTECTED_PATHS = (".gitconfig", ".bashrc", ".zshrc", ".env", "id_rsa")
+DENY_LIST = (
+    "sudo",
+    "rm -rf /",
+    "shutdown",
+    "reboot",
+    "mkfs",
+    "dd if=",
+    "> /dev/sda",
+)
+

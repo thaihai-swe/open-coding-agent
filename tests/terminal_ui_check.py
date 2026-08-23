@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.presentation.terminal_ui import TerminalUI, _edit_prompt
+from src.tools.permissions import AuthorizeOption
 
 
 def _reader(chars: str):
@@ -40,11 +41,50 @@ class TestTerminalUI(unittest.TestCase):
         self.assertEqual(ui.prompt(), "hello")
 
     def test_authorization_prompt(self) -> None:
-        ui_approve = TerminalUI(input_fn=lambda prompt: "a")
-        self.assertTrue(ui_approve.authorize("bash", {"command": "ls"}))
+        # AC-012 / REQ-004 / T-005
+        prompts: list[str] = []
 
-        ui_deny = TerminalUI(input_fn=lambda prompt: "d")
-        self.assertFalse(ui_deny.authorize("bash", {"command": "ls"}))
+        def make_input(val: str):
+            def _in(p: str) -> str:
+                prompts.append(p)
+                return val
+            return _in
+
+        ui_1 = TerminalUI(input_fn=make_input(f" {AuthorizeOption.ALLOW_ONCE} "))
+        d1 = ui_1.authorize("bash", {"command": "ls"})
+        self.assertTrue(d1.allow)
+        self.assertFalse(d1.persist)
+
+        ui_2 = TerminalUI(input_fn=make_input(AuthorizeOption.ALLOW_ALWAYS))
+        d2 = ui_2.authorize("bash", {"command": "ls"})
+        self.assertTrue(d2.allow)
+        self.assertTrue(d2.persist)
+
+        ui_3 = TerminalUI(input_fn=make_input(AuthorizeOption.DENY_ONCE))
+        d3 = ui_3.authorize("bash", {"command": "ls"})
+        self.assertFalse(d3.allow)
+        self.assertFalse(d3.persist)
+
+        ui_4 = TerminalUI(input_fn=make_input(f" {AuthorizeOption.DENY_ALWAYS} "))
+        d4 = ui_4.authorize("bash", {"command": "ls"})
+        self.assertFalse(d4.allow)
+        self.assertTrue(d4.persist)
+
+        for bad in ("", "a", "approve", "other", "yes", "no"):
+            with self.subTest(bad=bad):
+                ui = TerminalUI(input_fn=make_input(bad))
+                d = ui.authorize("bash", {"command": "ls"})
+                self.assertFalse(d.allow)
+                self.assertFalse(d.persist)
+
+        prompt_str = prompts[0]
+        self.assertIn(f"[{AuthorizeOption.ALLOW_ONCE}]", prompt_str)
+        self.assertIn(f"[{AuthorizeOption.ALLOW_ALWAYS}]", prompt_str)
+        self.assertIn(f"[{AuthorizeOption.DENY_ONCE}]", prompt_str)
+        self.assertIn(f"[{AuthorizeOption.DENY_ALWAYS}]", prompt_str)
+        self.assertIn("Yes", prompt_str)
+        self.assertIn("No", prompt_str)
+        self.assertIn("don't ask again", prompt_str)
 
     def test_json_event(self) -> None:
         buf = io.StringIO()

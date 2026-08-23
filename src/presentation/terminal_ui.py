@@ -7,6 +7,8 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
+from ..tools.permissions import AuthorizeDecision, AuthorizeOption
+
 _ENTER = "enter"
 _NEWLINE = "newline"
 _BACKSPACE = "backspace"
@@ -166,9 +168,15 @@ class TerminalUI:
             stream.flush()
             termios.tcsetattr(fd, termios.TCSADRAIN, saved)
 
-    def authorize(self, name: str, arguments: dict[str, Any]) -> bool:
-        response = self.input_fn(f"Approve {name} {json.dumps(arguments, sort_keys=True)}? [A]pprove/[D]eny: ").strip().lower()
-        return response in {"a", "approve"}
+    def authorize(self, name: str, arguments: dict[str, Any]) -> AuthorizeDecision:
+        prompt = (
+            f"Approve {name} {json.dumps(arguments, sort_keys=True)}? "
+            f"[{AuthorizeOption.ALLOW_ONCE}] Yes "
+            f"[{AuthorizeOption.ALLOW_ALWAYS}] Yes, don't ask again "
+            f"[{AuthorizeOption.DENY_ONCE}] No "
+            f"[{AuthorizeOption.DENY_ALWAYS}] No, don't ask again: "
+        )
+        return AuthorizeDecision.from_response(self.input_fn(prompt).strip())
 
     def event(self, event: dict[str, Any]) -> None:
         if self.json_mode:

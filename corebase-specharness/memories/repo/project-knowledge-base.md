@@ -5,18 +5,20 @@ Durable descriptive knowledge for this repository. Managed via `/starter-init` a
 ## Preserved Behavior Baseline
 
 <!-- Identify at least 3 critical behaviors that must never break during feature delivery or refactoring. Pre-filled during /starter-init archaeology. -->
-- Missing provider configuration (no env vars and no readable config file) must fail loudly: CLI `run()` returns exit code `2` with an actionable `ProviderError` (`tests/cli_check.py`, `src/presentation/cli.py`).
+- Missing provider configuration (no env vars and no readable config file) must fail loudly: CLI `run()` returns exit code `2` with an actionable `ProviderError` referencing `.cda/.secrets/config.json` (`tests/cli_check.py`, `src/presentation/cli.py`).
 - Environment variables `OPENAI_API_BASE` / `OPENAI_API_KEY` / `OPENAI_MODEL` override JSON config values (`tests/provider_check.py`).
-- HIGH and MEDIUM tools require `authorize()`; deny must not execute the handler and must record a tool result error (`tests/query_engine_check.py`).
-- Session JSON round-trip must not persist `OPENAI_API_KEY` (or similarly named) fields (`tests/session_check.py`, `SessionStore._redact`).
+- Hard deny list on shell tools and protected paths/keys cannot be overridden by user prompts or project rules (`tests/tools_check.py`, `tests/query_engine_check.py`).
+- Numbered 1-4 authorize prompts on MEDIUM and HIGH tools; deny must not execute handler and must record user deny (`tests/terminal_ui_check.py`, `tests/query_engine_check.py`).
+- Project permission rules persist in `.cda/.permission_rules/rules.json` and are evaluated on `QueryEngine.turn` path only; bare `invoke` does not import `permission_rules` (`tests/query_engine_check.py`).
+- Session JSON round-trip must not persist `OPENAI_API_KEY` (or similarly named) fields and remains messages-only under `.cda/.sessions/` (`tests/session_check.py`, `SessionStore._redact`).
 - KeyboardInterrupt during the REPL must save the session and exit `130` (`src/presentation/cli.py`).
 - QueryEngine stops after `max_turns` (default 8) with `termination_reason="max_turns_reached"` (`tests/query_engine_check.py`).
 
 ## Operational Watchouts & Gotchas
 
 <!-- Document known race conditions, tricky environment quirks, flaky external services, or performance hotspots discovered over time. -->
-- `documents/how-to-run.md` instructs `cp documents/config.example.json .secrets/config.json`, but `documents/config.example.json` does not exist.
-- `.secrets/` is not listed in `.gitignore`; `.sessions/` is. Do not commit real keys.
+- `documents/how-to-run.md` instructs `cp documents/config.example.json .cda/.secrets/config.json`, but `documents/config.example.json` does not exist.
+- `.cda/` (containing `.sessions/`, `.secrets/`, `.permission_rules/`) is listed in `.gitignore`. Do not commit real keys or local project rules.
 - `documents/BUILDING_A_CODING_AGENT.md` is out of scope (adopter, 2026-08-22). Do not use it as architecture or product contract.
 - Verification gates and security policy are `[DEFERRED]`. Advisory/no-gate `verify` cannot authorize `Done` without `--verification-override`.
 - `src/tools.py` is shadowed by package `src/tools/`; imports resolve to the package.
