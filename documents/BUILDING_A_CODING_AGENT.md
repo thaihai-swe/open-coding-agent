@@ -1,6 +1,6 @@
 # Building a Coding Agent CLI from Scratch: Python Master Blueprint
 
-A comprehensive, production-grade guide and 20-step progressive implementation roadmap for building an AI coding agent CLI in **Python** from scratch. This blueprint synthesizes architectural patterns from Claude Code, Claw Code, Learn Claude Code (ShareAI), and Cordum control-plane security research.
+A comprehensive, production-grade guide and progressive implementation roadmap for building an AI coding agent CLI in **Python** from scratch. This blueprint synthesizes architectural patterns from Claude Code, Claw Code, Learn Claude Code (ShareAI), and Cordum control-plane security research.
 
 ---
 
@@ -200,7 +200,6 @@ External systems integrate via MCP standards:
 
 Extension points let users adapt the CLI without modifying its core agent loop.
 
-* **Custom Agents**: Reusable specialist sub-agents defined by Markdown prompts, roles, allowed tools, and isolation requirements.
 * **skills**: Parameterized Markdown workflows that add domain knowledge or compose common actions into discoverable commands.
 * **Hooks**: configurable lifecycle actions before and after tool execution for linting, logging, notifications, and policy checks.
 * **Plugins**: Installable packages that can contribute tools, commands, skills, terminal UI elements, and integrations.
@@ -209,16 +208,15 @@ Extension points let users adapt the CLI without modifying its core agent loop.
 
 ---
 
-## 9. 20-Session Progressive Implementation Roadmap
+## 9. Progressive Implementation Roadmap
 
-This 20-step roadmap guides you from a basic 100-line script (`s01`) to a complete production harness (`s20`).
+This roadmap guides you from a basic 100-line script (`s01`) to a complete production harness (`s20`).
 
 ```
 Tools & Execution          (s01 – s04)
-Planning & Coordination    (s05 – s07, s10, s11)
+Planning & Coordination    (s05, s07, s10, s11)
 Memory Management          (s08 – s09)
-Concurrency & Scheduling   (s13 – s14)
-Multi-Agent Platform       (s12, s15 – s20)
+Platform & Extensibility   (s19 – s20)
 ```
 
 ### Milestone Schedule
@@ -238,9 +236,6 @@ Multi-Agent Platform       (s12, s15 – s20)
 #### Session 05: Explicit Planning Subsystem
 * **Goal**: Implement task list tools allowing the agent to create and update structured plan states.
 
-#### Session 06: Isolated Sub-Agents
-* **Goal**: Enable the main agent to launch child sub-agents with clean, isolated context windows.
-
 #### Session 07: Dynamic skill Loading
 * **Goal**: Add skill tools to load external domain instructions dynamically into context when needed.
 
@@ -255,27 +250,6 @@ Multi-Agent Platform       (s12, s15 – s20)
 
 #### Session 11: Error Recovery & Retry Classifier
 * **Goal**: Classify tool execution errors (syntax error, missing argument, non-zero return code) and construct feedback prompts for self-correction.
-
-#### Session 12: Structured Task Board
-* **Goal**: Build task graph management tools (`TaskCreate`, `TaskUpdate`, `TaskStop`) to orchestrate multi-step engineering goals.
-
-#### Session 13: Non-Blocking Background Tasks
-* **Goal**: Support background command execution with asynchronous process polling and notification events.
-
-#### Session 14: Cron Task Scheduler
-* **Goal**: Add harness-managed scheduled execution for periodic background checks.
-
-#### Session 15: Agent Teams & Mailboxes
-* **Goal**: Support multi-agent teams with dedicated message mailboxes and process isolation.
-
-#### Session 16: Inter-Agent Communication Protocol
-* **Goal**: Standardize structured message passing contracts between agent team members.
-
-#### Session 17: Autonomous Task Claiming
-* **Goal**: Allow idle background agents to scan the task board and claim pending tasks autonomously.
-
-#### Session 18: Git Worktree Isolation
-* **Goal**: Implement worktree management to give parallel sub-agents isolated filesystem directories.
 
 #### Session 19: MCP Tool Client Bridge
 * **Goal**: Build full MCP client supporting stdio and HTTP/SSE transport discovery with explicit tool namespacing.
