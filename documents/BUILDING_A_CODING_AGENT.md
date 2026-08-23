@@ -251,7 +251,7 @@ Multi-Agent Platform       (s12, s15 – s20)
 * **Goal**: Build persistent project memory surviving session clears and transcript compactions.
 
 #### Session 10: Dynamic System Prompt Assembly
-* **Goal**: Assemble system prompts at runtime combining instruction files (`CLAUDE.md`), active tools, skill definitions, and security policies.
+* **Goal**: Assemble system prompts at runtime combining instruction files (`AGENTS.md`), active tools, skill definitions, and security policies.
 
 #### Session 11: Error Recovery & Retry Classifier
 * **Goal**: Classify tool execution errors (syntax error, missing argument, non-zero return code) and construct feedback prompts for self-correction.
