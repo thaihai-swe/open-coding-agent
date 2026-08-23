@@ -11,86 +11,75 @@ triggers: ['init', 'start', 'setup', 'install']
 
 | | |
 |---|---|
-| **Reads** | Target repo structure, `corebase-specharness/project/harness-config.yaml` (seed template) |
-| **Writes** | Optional directories: `corebase-specharness/project`, `corebase-specharness/memories/repo` (adopter-owned seeds only) |
+| **Reads** | Target repo structure, `harness-config.yaml` (seed template) |
+| **Writes** | Optional directories: `corebase-specharness/project`, `corebase-specharness/memories/repo` (adopter seeds only) |
 | **Key CLI** | `python3 corebase-specharness/scripts/core/cli.py init --json`, `python3 corebase-specharness/scripts/core/cli.py doctor --json`, `python3 corebase-specharness/scripts/core/cli.py memory-audit --json` |
-| **Entry** | Directly invokable peer skill; choose `/spec-research` or `/spec-requirements` after bootstrap |
+| **Entry** | Direct peer skill; choose `/spec-research` or `/spec-requirements` after bootstrap |
 
 ## Overview
 
-Bootstraps the `corebase-specharness/` and `corebase-specharness/memories/` directories with standard templates, then guides the adopter through customizing the seeded memory files for their project.
-
-Establishes the repository baseline for the harness before feature work begins. Detects repo type, guides a read-only archaeology pass for brownfield repositories, and sets up the initial memory scaffold with adopter-specific content. Archaeology is an agent-run skill workflow, not installer-side automatic behavior.
+Bootstrap `corebase-specharness/` directories and customize memory seeds for the project. Detects repo type, guides read-only archaeology for brownfields, and establishes verification gates.
 
 ## When to Use & Invocation Triggers
 
-- **When to Use**:
-  - Bootstrapping a newly installed or cloned repository.
-  - Setting up project-level memory, policies, architecture, and verification gates.
-  - Resynching stack markers and archaeology findings on a previously initialized repo.
+- **When to Use**: newly installed repo; setup memory/policies/gates; resync stack drift.
 - **Triggers**: `init`, `start`, `setup`, `install`
 
 ## Execution Modes & Profiles
 
-| Mode | Condition / Trigger | Primary Purpose & Outputs |
+| Mode | Condition | Outputs |
 |---|---|---|
-| `fresh-init` | Empty repo or uninitialized workspace | Complete 4-step bootstrap: scaffolding, Phase A sweep, Phase B memory pre-fill, gate setup |
-| `resync-drift` | `harness-config.yaml` exists and is non-empty | Read-only archaeology diff pass; outputs drift report against `tech-stack.md` without overwriting adopter edits |
+| `fresh-init` | Empty / uninitialized workspace | 4-step bootstrap: scaffold, Phase A sweep, Phase B memory, gates |
+| `resync-drift` | `harness-config.yaml` exists | Read-only diff pass vs `tech-stack.md` |
 
 ## I/O & Artifact Protocol
 
-- **Reads**: Target repository codebase, stack markers (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, etc.).
-- **Writes**:
-  - `corebase-specharness/memories/repo/core-policies.md`
-  - `corebase-specharness/memories/repo/project-knowledge-base.md`
-  - `corebase-specharness/memories/repo/learned-heuristics.md`
-  - `corebase-specharness/project/architecture.md`
-  - `corebase-specharness/project/tech-stack.md`
-  - `corebase-specharness/project/harness-config.yaml`
-- **Session State**: N/A for bootstrap phase; prepares workspace for session initialization.
+- **Reads**: Target repo codebase, stack markers (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, etc.).
+- **Writes**: `core-policies.md`, `project-knowledge-base.md`, `learned-heuristics.md`, `architecture.md`, `tech-stack.md`, `harness-config.yaml`.
+- **Session**: N/A for bootstrap phase.
 
 ## Step-by-Step Execution Workflow
 
-1. **Pre-flight & Scaffold Initialization**:
-   - Run `python3 corebase-specharness/scripts/core/cli.py init --json` for directory, seed-file, stack-marker, and `.gitignore` mechanics.
-   - Inspect existing `AGENTS.md` and any native agent instruction files. `AGENTS.md` is the portable CoreBase SpecHarness router; preserve native files and surface conflicts rather than creating or editing them.
-   - Read the `onboarding_readiness` section returned by `python3 corebase-specharness/scripts/core/cli.py init --json`. It identifies detected stacks, confirmed gates, preserved instruction files, and `[UNKNOWN]` onboarding facts.
+1. **Pre-flight & Scaffold**:
+   - `python3 corebase-specharness/scripts/core/cli.py init --json`.
+   - Inspect existing `AGENTS.md` and native instruction files; preserve valid rules and surface conflicts.
+   - Read `onboarding_readiness` from `init --json` (stacks, gates, preserved files, `[UNKNOWN]` facts).
 
 2. **Archaeology Sweep (Phase A)**:
-   - Detect greenfield vs. brownfield using stack markers (`package.json`→node, `pyproject.toml`→python, `go.mod`→go, `Cargo.toml`→rust, etc.). Record hits in `corebase-specharness/project/tech-stack.md`.
-   - *Greenfield*: If empty repo or kit-only files, skip archaeology pass.
-   - *Brownfield*: Follow `references/brownfield-mode.md` to conduct a read-only archaeology sweep using subagents. Record findings directly in `corebase-specharness/project/tech-stack.md`, `corebase-specharness/project/architecture.md`, `corebase-specharness/memories/repo/core-policies.md` (`## Known Broken Tests`, `## Security Policy`), and `corebase-specharness/memories/repo/project-knowledge-base.md` (`## Preserved Behavior Baseline`). Option: use `references/brownfield-mode.md` (`## Rules-Bootstrap Conventions`) for convention proposals.
+   - Detect stack markers (`package.json`→node, `pyproject.toml`→python, `go.mod`→go, `Cargo.toml`→rust). Record in `tech-stack.md`.
+   - *Greenfield*: empty repo → skip archaeology.
+   - *Brownfield*: follow `references/brownfield-mode.md` for read-only sweep. Record in `tech-stack.md`, `architecture.md`, `core-policies.md` (`## Known Broken Tests`, `## Security Policy`), and `project-knowledge-base.md` (`## Preserved Behavior Baseline`).
 
-3. **Memory Customization & Gate Setup (Phase B)**:
-   - Separate facts from decisions. Discover stack, entrypoints, existing gates, and instruction files through inspection; ask the adopter only for product identity, SLOs, trust boundaries, and gate confirmation.
-   - Ask unblocked onboarding questions in one numbered frontier batch with a recommended default per question. Do not invent missing facts.
-   - Pre-fill seeded files from evidence using `references/template-prefill.md`. Mark remaining gaps `[UNKNOWN]` or `[USER REVIEW NEEDED]`.
-   - Interactively confirm or rewrite:
-      - `core-policies.md`: Confirm normative rules; fill `## Known Broken Tests` and `## Security Policy` (trust boundaries and security-sensitive paths).
-      - `project-knowledge-base.md`: Record `## Preserved Behavior Baseline` and operational watchouts. Point architecture, stack, and vocabulary at `corebase-specharness/project/` files instead of duplicating them.
-      - `learned-heuristics.md`: Keep project-relevant heuristic entries; do not invent kit-specific lessons.
-     - `harness-config.yaml`: Write adopter build/lint/test commands under configured gate runner commands, then set `project_setup.status: ready` and `reviewed_at` after the adopter confirms them. If deferred, retain `deferred` and explain that no-gate advisory verification cannot normally close a feature.
-     - `corebase-specharness/project/glossary.md`: Capture resolved domain terms immediately; do not invent vocabulary.
+3. **Memory Customization & Gates (Phase B)**:
+   - Discover stack, entrypoints, existing gates via inspection; ask adopter only for identity, SLOs, trust boundaries, gate confirmation.
+   - Ask unblocked questions in one numbered batch with recommended defaults.
+   - Pre-fill seeded files using `references/template-prefill.md`. Mark gaps `[UNKNOWN]` or `[USER REVIEW NEEDED]`.
+   - Confirm/edit:
+     - `core-policies.md`: normative rules, `## Known Broken Tests`, `## Security Policy`.
+     - `project-knowledge-base.md`: `## Preserved Behavior Baseline` and watchouts.
+     - `learned-heuristics.md`: keep project-relevant entries.
+     - `harness-config.yaml`: write build/lint/test gates, set `project_setup.status: ready` + `reviewed_at`. If deferred, explain no-gate advisory cannot close features.
+     - `glossary.md`: capture domain terms immediately.
 
-4. **Mechanical Verification & Handoff**:
-   - Run `python3 corebase-specharness/scripts/core/cli.py doctor --json` to verify manifest and context routes.
-   - Run `python3 corebase-specharness/scripts/core/cli.py memory-audit --json` to inspect durable-memory size and duplication.
-   - Report the onboarding readiness summary: confirmed facts, `[UNKNOWN]` facts, proposed/confirmed gates, instruction-file conflicts, and the next explicit delivery skill.
-   - If repository onboarding documentation is needed, direct the adopter to `EXTERNAL_SKILLS.md`; external skills are optional and are not CoreBase SpecHarness routes.
-   - Hand off to `/spec-research` (brownfield) or `/spec-requirements` (greenfield).
+4. **Verification & Handoff**:
+   - `python3 corebase-specharness/scripts/core/cli.py doctor --json`.
+   - `python3 corebase-specharness/scripts/core/cli.py memory-audit --json`.
+   - Report onboarding readiness: confirmed facts, unknowns, gates, conflicts, next skill.
+   - External onboarding docs: see `EXTERNAL_SKILLS.md`.
+   - Handoff to `/spec-research` (brownfield) or `/spec-requirements` (greenfield).
 
 ## Anti-Patterns & Red Flags
 
-- **Skipping Phase B Customization**: Leaving generic kit placeholders masquerading as project memory.
-- **Destructive Re-Init**: Overwriting custom adopter policies or architecture notes during a re-run.
-- **Shadow Installer**: Writing custom engine scripts instead of registering configured gate commands in `harness-config.yaml`.
-- **Modifying Source Code**: Editing codebase files during read-only Phase A archaeology sweep.
+- Leaving kit placeholders as project memory.
+- Overwriting adopter policies on re-run.
+- Writing custom engine scripts instead of registering gates in `harness-config.yaml`.
+- Modifying source code during Phase A.
 
 ## Core Rules
 
-- **Mandatory Customization**: Phase B customization MUST be completed or explicitly deferred with `[DEFERRED]`.
-- **Ask, Don't Guess**: Record explicit evidence or adopter answers; mark `[UNKNOWN]` per CC-002 when details are unavailable.
-- **Fact vs Decision**: Look up repository facts; ask only product, policy, and gate decisions.
-- **Surgical Memory Edits**: Preserve headings and ID structures (`CC-*`, `LH-*`).
-- **Subagent Summaries Only**: Raw subagent listings must be summarized before merging into main context.
-- **Portable Router**: `AGENTS.md` is the canonical shipped router. CoreBase SpecHarness does not generate or require vendor-specific agent configuration files.
+- Phase B customization MUST be completed or explicitly marked `[DEFERRED]`.
+- Mark missing facts `[UNKNOWN]` per CC-002; never guess.
+- Look up facts; ask only decisions.
+- Preserve headings and IDs (`CC-*`, `LH-*`).
+- Summarize subagent listings before merging into context.
+- `AGENTS.md` is the canonical shipped router.

@@ -1,78 +1,66 @@
 # Diagnosis Map: When Agents Underperform
 
-When the user is frustrated with agent output, the problem is almost always in the harness, not the model. This map identifies the failing harness layer and routes to the targeted fix.
+The problem is almost always the harness, not the model.
 
 ## Symptom → Root Cause → Fix
 
-| User Complaint | Harness Layer | Root Cause | Fix | CoreBase SpecHarness Route |
+| User Complaint | Layer | Root Cause | Fix | Route |
 |-|-|-|-|-|
-| "It keeps making the same mistake" | Constraints | No rule preventing it | Add lint rule, type check, or test | `/harness-maintain improve` → draft LH-* rule |
-| "It doesn't follow our conventions" | Context | Conventions not documented or discoverable | Write convention in `docs/`, reference from AGENTS.md | `/spec-research` brownfield mapping |
-| "It broke something that was working" | Verification | No regression test for existing behavior | Add test before changing | `/spec-testing-scenario` |
-| "It goes off on tangents" | Scope | No clear task scope or feature list | Add structured task list, enforce WIP=1 | `/spec-tasks` tasks.md |
-| "It writes mediocre code" | Context | No examples of good code in context | Add code examples or patterns to domain pack | `/context-memory` → domain pack patterns.md |
-| "It writes shallow wrappers" | Architecture | Speculative seams or one-adapter abstractions | Apply deletion test and two-adapter rule | `/spec-plan` + `code-design.md` Abstraction Check |
-| "It debugs by guessing" | Feedback | No red-capable command before hypotheses | Require a fast deterministic failing command first | `/spec-research` tight feedback loop |
-| "It forgets what we discussed" | Memory | Cross-session context not persisted | Write decisions to `session.md` | `python3 corebase-specharness/scripts/core/cli.py session-end` → session-extracts |
-| "It declares done too early" | Verification | No verification step or checklist | Add AC with proof command, run `/harness-verify` | `/harness-verify` |
-| "It uses wrong patterns" | Context | Competing patterns, no guidance on which to use | Document which pattern when in domain pack | `/context-memory` → domain pack |
-| "Output quality is inconsistent" | Feedback | No evaluation/feedback loop | Add eval rubric, run multi-pass eval | `/harness-maintain eval` |
-| "It takes forever and costs too much" | Architecture | Over-engineered harness or wrong approach | Simplify — remove harness components that don't add value | See `## When to Simplify` below |
+| Same mistake repeats | Constraints | No preventing rule | Add lint, type check, or test | `/harness-maintain improve` → draft LH-* |
+| Ignores conventions | Context | Conventions not documented | Write convention; reference from AGENTS.md | `/spec-research` brownfield map |
+| Broke working behavior | Verification | No regression test | Add test before changing | `/spec-testing-scenario` |
+| Goes off on tangents | Scope | No clear task scope | Structured task list, WIP=1 | `/spec-tasks` |
+| Mediocre code | Context | No good examples in context | Add examples to domain pack | `/context-memory` → patterns.md |
+| Shallow wrappers | Architecture | Speculative one-adapter seams | Deletion test + two-adapter rule | `/spec-plan` + `code-design.md` |
+| Debugs by guessing | Feedback | No red-capable command first | Require a fast failing command | `/spec-research` tight loop |
+| Forgets the discussion | Memory | Cross-session context not persisted | Write decisions to `session.md` | `session-end` → session-extracts |
+| Declares done too early | Verification | No verification step | AC with proof; run `/harness-verify` | `/harness-verify` |
+| Uses wrong patterns | Context | Competing patterns, no guidance | Document which pattern when | `/context-memory` → domain pack |
+| Inconsistent quality | Feedback | No eval loop | Add rubric; multi-pass eval | `/harness-maintain eval` |
+| Too slow / too costly | Architecture | Over-engineered harness | Remove components that add no value | `## When to Simplify` |
 
 ## Diagnosis Process
 
 ### Step 1: Identify the Layer
 
-Ask: Where in the harness stack is the failure?
-
-1. **Context**: Agent doesn't have the right information → fix routing or docs
-2. **Constraints**: Agent isn't prevented from making errors → add lint/test/type rule
-3. **Feedback**: Agent doesn't know it's failing → add verification step
-4. **Architecture**: Single-agent can't handle the task's complexity → split into subagents
-5. **Scope**: Task is too big or ambiguous → break into smaller tasks
+1. **Context**: missing information → fix routing or docs
+2. **Constraints**: errors not prevented → add lint/test/type rule
+3. **Feedback**: agent does not know it failed → add verification
+4. **Architecture**: single agent cannot handle complexity → split only if proven
+5. **Scope**: task too big or ambiguous → break it up
 
 ### Step 2: Apply Minimal Fix
 
-Apply the smallest change that addresses the root cause:
+- Missing context → one doc or domain-pack entry
+- Missing constraint → one lint rule or test
+- Missing feedback → one verification step
+- Architecture → two agents only if one truly cannot handle it
+- Scope → smaller pieces
 
-- Missing context → Add one doc file or domain pack entry
-- Missing constraint → Add one lint rule or test
-- Missing feedback → Add one verification step
-- Architecture problem → Split into two agents (only if single agent truly can't handle it)
-- Scope problem → Break task into smaller pieces
-
-Do not over-engineer the fix. One rule per mistake. Iterate.
+One rule per mistake. Do not over-engineer.
 
 ### Step 3: Verify
 
-After applying the fix:
-1. Reproduce the original problem scenario
+1. Reproduce the original scenario
 2. Confirm the fix prevents it
-3. Confirm the fix doesn't break other things
+3. Confirm nothing else broke
 
 ## One Rule Per Mistake
 
-Every time an agent makes a mistake:
-
 1. Fix the immediate issue
-2. Ask: "Could a rule prevent this forever?"
-3. If yes → add the rule (lint, test, type, or documented convention)
-4. If no → add context (docs, examples, domain pack entries)
+2. Ask: could a rule prevent this forever?
+3. Yes → add lint, test, type, or convention
+4. No → add context (docs, examples, domain pack)
 
-Over time, the harness accumulates rules that prevent every mistake the agent has ever made. The error rate converges toward zero for known failure modes. See CC-008 in `corebase-specharness/memories/repo/core-policies.md`.
+See CC-008 in `corebase-specharness/memories/repo/core-policies.md`.
 
 ## When to Simplify
 
-Signs the harness is over-engineered:
-- Agent spends more time on harness compliance than actual work
-- Multiple redundant checks for the same thing
-- Harness rules that never trigger (the model learned past them)
-- Cost/time significantly higher without proportional quality gain
+Over-engineered if: more time on harness than work; redundant checks; rules that never fire; cost up without quality gain.
 
-How to simplify:
-1. Disable one component (lint rule, constraint, doc file) and benchmark
-2. If no measurable quality drop → remove it permanently
-3. If quality dropped → keep it, document why it's needed
-4. Repeat for each suspect component
+1. Disable one component and benchmark
+2. No quality drop → remove it
+3. Quality dropped → keep it and document why
+4. Repeat
 
-Harness entropy grows over time. Schedule periodic simplification — treat it as maintenance, not optimization. Remove harness components when the model no longer needs them.
+Treat simplification as maintenance.

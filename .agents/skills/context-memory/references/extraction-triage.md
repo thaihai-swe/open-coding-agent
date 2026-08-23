@@ -1,47 +1,38 @@
 # Extraction Triage
 
-When processing extracted-tier or auto-tier memory entries:
+When processing extracted or auto-tier memory entries:
 
-1. Locate candidate sources:
+1. Locate candidates:
    - Per-feature: `artifacts/features/<slug>/session-extracts.md`
-   - Across active features: `artifacts/features/*/session-extracts.md`
-2. Process each pending candidate in order:
-   - Read the candidate's category, confidence, and evidence
-   - Decide: promote, defer, or discard
-   - Distillation & Deduplication Check: Before promoting any candidate, cross-reference it with the existing guidelines/heuristics in the target file. If there is semantic overlap or the target already covers the core lesson, merge the evidence, increment the recurrence count, and distill the rule to keep the descriptions concise, active-voice, and distinct. Do not append separate duplicate entries.
-3. Promote when the candidate is durable, evidence-backed, and matches an instruction-tier file:
-   - Heuristic with confirming evidence or a hard safety/data-loss rule -> append to `learned-heuristics.md`
-   - Pattern or boundary fact -> integrate into `project-knowledge-base.md` or `corebase-specharness/project/architecture.md`
-   - Normative rule with team agreement -> amend `core-policies.md` (CC-*)
-   - Permission, trust, or sandbox rule -> amend `core-policies.md` `## Security Policy`
-   - Domain term that crystallized in the session -> append to `corebase-specharness/project/glossary.md` or the matching domain pack
-   - Harness gap -> route to `harness-maintain` Improve Mode
-   - Spec gap -> route back to `spec-requirements`
-4. Defer when the candidate is plausible but under-evidenced:
-   - Mark as `deferred` with a one-line reason
-   - It stays available for re-triage after future sessions strengthen the signal
-5. Discard when the candidate is feature-local, contradicted, or already covered:
-   - Mark as `discarded` with a one-line reason
-   - Do not delete — the trail matters
-6. Update the source file:
-   - Move processed candidates from `## Pending Candidates` to `## Triaged` in `session-extracts.md`
-   - Update `Status:` and add `Triage notes:` in `artifacts/features/*/session-extracts.md`; move retired entries to `## Retired Entries`
-7. Verify:
-   - No candidate left in `pending` without an explicit triage decision in this pass
-   - Promoted content actually changed an instruction-tier file (link the new identifier)
-   - Discarded content has a recorded reason
+   - Across features: `artifacts/features/*/session-extracts.md`
+2. Process each pending candidate:
+   - Read category, confidence, evidence.
+   - Decide: promote, defer, or discard.
+   - Before promote: merge semantic overlap with the target file. Increment recurrence. Distill; do not append duplicates.
+3. Promote only durable, evidence-backed items:
+   - Heuristic / hard safety rule → `learned-heuristics.md`
+   - Pattern or boundary → `project-knowledge-base.md` or `architecture.md`
+   - Normative rule with agreement → `core-policies.md` (`CC-*`)
+   - Permission / trust / sandbox → `core-policies.md` `## Security Policy`
+   - Domain term → `glossary.md` or matching domain pack
+   - Harness gap → `harness-maintain` Improve Mode
+   - Spec gap → `spec-requirements`
+4. Defer plausible but under-evidenced items. Mark `deferred` with a one-line reason.
+5. Discard feature-local, contradicted, or already-covered items. Mark `discarded` with a reason. Do not delete the trail.
+6. Update source: move processed items from `## Pending Candidates` to `## Triaged`. Add `Triage notes:`. Move retired entries to `## Retired Entries`.
+7. Verify: no leftover `pending`; promoted content changed an instruction file; discarded items have reasons.
 
-Stop Conditions:
-- The candidate's evidence references files or sessions that no longer exist — mark as `discarded` with reason
-- Multiple sessions contradict the candidate — discard with the contradiction recorded
-- The candidate is genuinely feature-local — discard, do not promote
+Stop:
+- Evidence references missing files/sessions → `discarded`
+- Sessions contradict the candidate → `discarded` with contradiction
+- Feature-local → `discarded`, do not promote
 
 Anti-patterns:
-- Promoting every candidate to look thorough. Defer or discard is often the right call.
-- Editing candidate text instead of moving it. Source candidates are append-only history.
-- Promoting on a single session's evidence when the heuristic threshold requires repetition.
-- Creating a new `LH-*` or `CC-*` that restates an existing rule instead of merging evidence and incrementing recurrence.
+- Promoting every candidate. Defer/discard is often correct.
+- Editing candidate text instead of moving it. Candidates are append-only.
+- Promoting on one session unless it is a hard safety/data-loss rule.
+- Creating a new `LH-*`/`CC-*` that restates an existing rule.
 
 ## Mechanical Audit Fields
 
-Use `python3 corebase-specharness/scripts/core/cli.py memory-audit --json` file counts and threshold warnings before promotion or distillation. If any inspected file is at `warning-level` or `hard-cap`, run compaction before promoting more text: snapshot `.bak` and `.ids_before`, cut prose 30–50% to bullets, keep every `##` heading and every stable ID, then confirm `.ids_after` matches `.ids_before`. Do not promote a new `LH-*` or `CC-*` into a file already over the hard cap.
+Run `python3 corebase-specharness/scripts/core/cli.py memory-audit --json` before promotion. If a file is `warning-level` or `hard-cap`, compact first: snapshot `.bak` and `.ids_before`, cut prose 30–50% to bullets, keep every `##` heading and stable ID, confirm `.ids_after` matches. Do not promote a new `LH-*`/`CC-*` into a hard-capped file.

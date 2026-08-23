@@ -11,91 +11,80 @@ triggers: ['requirement', 'spec', 'feature']
 
 | | |
 |---|---|
-| **Reads** | `corebase-specharness/project/product-sense.md`, `corebase-specharness/project/project-constraints.md`, optional `analysis.md` |
+| **Reads** | `product-sense.md`, `project-constraints.md`, optional `analysis.md` |
 | **Writes** | Required: `spec.md`. Optional: `proposal.md`, `requirements-review.md`, `status.md` |
 | **Key CLI** | `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-requirements --feature <slug> --intent "<request>"`, `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill spec-requirements --feature <slug> --handoff spec-plan` |
-| **Entry** | Directly invokable peer skill; handoff may suggest `/spec-plan` |
+| **Entry** | Direct peer skill; handoff may suggest `/spec-plan` |
 
 ## Overview
 
-Create or refine `status.md`, `proposal.md`, `spec.md`, and (if issues are found) `requirements-review.md` in `artifacts/features/<slug>/`. This skill aligns the team on what is being built and how it will be verified.
-
-Defines functional requirements (`REQ-*`), testable acceptance criteria (`AC-*`), user stories (`US-*`), and success criteria (`SC-*`) without leaking implementation details.
+Author `spec.md` with `REQ-*`, binary `AC-*`, `US-*`, and `SC-*`. What/why only — no implementation leakage.
 
 ## When to Use & Invocation Triggers
 
-- **When to Use**:
-  - Defining a new feature, change request, or initiative.
-  - Refining existing specifications or acceptance criteria.
-  - Resolving ambiguity before technical planning.
-  - *Clarify Re-Entry*: Re-grilling open questions when mid-plan or mid-implement scope questions arise.
+- **When to Use**: new feature; refine spec/ACs; resolve ambiguity; re-grill mid-plan/implement questions.
 - **Triggers**: `requirement`, `spec`, `feature`
 
 ## Execution Modes & Profiles
 
-| Mode | Condition / Trigger | Primary Purpose & Outputs |
+| Mode | Condition | Output |
 |---|---|---|
-| `full-intake` | No `spec.md` exists, or creating a new feature from scratch | Complete 9-step intake: alignment, Socratic grilling, delivery profile, proposal, `spec.md` authoring |
-| `clarify-reentry` | Non-empty `spec.md` exists, but open questions or `[:HALT ...]` remain | Targeted update: loads existing spec, grills unresolved questions, patches `spec.md`, stamps `[:HALT STALE]` if plan exists |
+| `full-intake` | No `spec.md` | Alignment, grilling, profile, proposal, `spec.md` |
+| `clarify-reentry` | Spec exists with open questions or `[:HALT ...]` | Patch spec; stamp `[:HALT STALE]` if plan exists |
 
 ## I/O & Artifact Protocol
 
-- **Reads**: `artifacts/features/<slug>/analysis.md` (if present), `artifacts/features/<slug>/status.md`, `corebase-specharness/project/product-sense.md`, `corebase-specharness/project/project-constraints.md`, `corebase-specharness/memories/repo/adr-log.md`.
-- **Writes**:
-  - `artifacts/features/<slug>/spec.md` (`REQ-*`, `AC-*`, `SC-*`)
-  - `artifacts/features/<slug>/status.md` via `skill-enter` (`Specifying`) and `skill-exit` (`SpecApproved`)
-  - `artifacts/features/<slug>/proposal.md` (Moderate and Complex profiles)
-  - Optional `artifacts/features/<slug>/requirements-review.md` (if readiness review flags issues)
-- **Session State**: Updates `.corebase-specharness/sessions/<slug>/session.md` (`## Objective`, `## Progress`, `## Handoff`).
+- **Reads**: `analysis.md` if present, `status.md`, `product-sense.md`, `project-constraints.md`, `adr-log.md`.
+- **Writes**: `spec.md`; `status.md` (`Specifying` → `SpecApproved`); `proposal.md` (Moderate/Complex); optional `requirements-review.md`.
+- **Session**: `.corebase-specharness/sessions/<slug>/session.md`.
 
 ## Step-by-Step Execution Workflow
 
 1. **Pre-flight**:
-   - Run `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-requirements --feature <slug> --intent "<request>"`.
-   - Omit `--full` unless this conversation was compacted, this is the first skill in a new chat on an existing feature, the user asked to reload context, or the pack is known stale. See `skills/_shared/context-loading.md`.
-   - Do not hand-edit `- Phase:`. The envelope creates `status.md` if needed and sets `Specifying`.
+   - `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-requirements --feature <slug> --intent "<request>"`.
+   - Omit `--full` unless compacted, new chat on existing feature, reload requested, or pack stale. See `skills/_shared/context-loading.md`.
+   - Do not hand-edit `- Phase:`. Envelope creates `status.md` and sets `Specifying`.
 
-2. **Intake & Context Alignment**:
-   - Classify input type (`new_spec`, `spec_slice`, `change_request`, `new_initiative`, `maintenance`, `harness_improvement`) in `status.md` per `references/intake.md`.
-   - Supply the feature request as `--intent` to context loading. CoreBase SpecHarness discovers nested domain packs by matching that intent against `triggers:` in `corebase-specharness/memories/domain/<name>/glossary.md`.
-   - Read research findings in `analysis.md` if available.
-   - Check `corebase-specharness/memories/repo/adr-log.md`. If proposed spec contradicts a locked ADR, write `[:HALT ADR CONFLICT: ADR-NNN]` and block handoff.
+2. **Intake**:
+   - Classify input (`new_spec`, `spec_slice`, `change_request`, `new_initiative`, `maintenance`, `harness_improvement`) per `references/intake.md`.
+   - Pass request as `--intent`. Domain packs match `triggers:` in `corebase-specharness/memories/domain/<name>/glossary.md`.
+   - Read `analysis.md` if present.
+   - If spec contradicts a locked ADR, write `[:HALT ADR CONFLICT: ADR-NNN]` and block handoff.
 
-3. **Clarification Phase (Frontier Grilling)**:
-   - Calibrate user domain familiarity (Novice / Familiar / Expert) and urgency (Relaxed / Normal / Urgent).
-   - Execute wave-based grilling per `references/grilling-waves.md` using the **frontier-round protocol**. Ask all unblocked questions together in numbered batches with recommended defaults.
-   - Separate facts from decisions: discover repository facts through codebase inspection or subagents; ask the user only for domain, trade-off, and scope decisions.
-   - Capture resolved domain terms into `corebase-specharness/project/glossary.md` (or domain pack) immediately as they crystallize.
-   - If answers remain contradictory after 2 rounds, write `[:HALT UNRESOLVED]` and escalate.
+3. **Clarification**:
+   - Calibrate familiarity (Novice/Familiar/Expert) and urgency (Relaxed/Normal/Urgent).
+   - Frontier grilling per `references/grilling-waves.md`: all unblocked questions in numbered batches with recommended defaults.
+   - Discover repo facts by inspection; ask only domain, trade-off, and scope decisions.
+   - Capture resolved terms into `glossary.md` immediately.
+   - Contradictory after 2 rounds → `[:HALT UNRESOLVED]`.
 
-4. **Profile Classification & Proposal**:
-   - Classify scope into `Simple`, `Moderate`, or `Complex` and write to `status.md`.
-   - Draft `proposal.md` using `references/proposal-template.md` (skip for `Simple`).
+4. **Profile & proposal**:
+   - Classify `Simple` / `Moderate` / `Complex` in `status.md`.
+   - Draft `proposal.md` via `references/proposal-template.md` (skip for `Simple`).
 
-5. **Spec Authoring (`spec.md`)**:
-   - Author `spec.md` using `references/spec-template.md`.
-   - Define `REQ-*` functional requirements and `AC-*` binary acceptance criteria.
-   - For `Moderate`/`Complex`: Organize requirements into prioritized user stories (`US1`/P1 MVP, `US2`/P2, etc.).
-   - Link every Non-Functional Requirement (NFR) to at least one `AC-*` via `Linked ACs:`.
-   - Ensure every `AC-*` specifies an observable assertion and a verification mechanism.
+5. **Author `spec.md`**:
+   - Use `references/spec-template.md`. Define `REQ-*` and binary `AC-*`.
+   - Moderate/Complex: prioritize `US1`/P1 MVP, `US2`/P2, …
+   - Bind every NFR to ≥1 `AC-*` via `Linked ACs:`.
+   - Every `AC-*` needs an observable assertion and verification mechanism.
 
-6. **Completeness Review & Phase Gate Handoff**:
-   - Verify zero HALT tags (`[:HALT NEEDS CLARIFICATION]`, `[:HALT UNRESOLVED]`, `[:HALT ADR CONFLICT]`) remain.
-   - Conduct readiness review per `references/requirements-review-template.md`. Create `requirements-review.md` only if gaps are found.
-   - Run `python3 corebase-specharness/scripts/core/cli.py phase-check --feature <slug> --skill spec-requirements`.
-   - Mark `Spec approved` `[x]`, then run `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill spec-requirements --feature <slug> --handoff spec-plan`.
-   - If acceptance criteria define a public API, CLI, or schema, an adopter may use a separately installed external documentation skill; CoreBase SpecHarness does not route or require it.
+6. **Review & handoff**:
+   - Zero HALT tags remaining.
+   - Readiness review per `references/requirements-review-template.md`. Write `requirements-review.md` only if gaps exist.
+   - `python3 corebase-specharness/scripts/core/cli.py phase-check --feature <slug> --skill spec-requirements`.
+   - Mark `Spec approved` `[x]`, then `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill spec-requirements --feature <slug> --handoff spec-plan`.
+   - Public API/CLI/schema docs may use an external skill; not a CoreBase route.
 
 ## Anti-Patterns & Red Flags
 
-- **Ambiguous Acceptance Criteria**: Writing "the system should be fast/working" instead of binary pass/fail assertions.
-- **Isolated NFRs**: Listing performance or security constraints without binding them to an `AC-*`.
-- **Implementation Leakage**: Specifying code/framework choices ("use Redis for cache") in the spec — What/Why belongs in spec, How belongs in plan.
-- **Silent Scope Creep**: Adding unrequested requirements during grilling without user confirmation.
+- Vague ACs ("fast", "working") instead of binary assertions.
+- NFRs with no `AC-*` binding.
+- Implementation leakage ("use Redis") in the spec.
+- Adding unrequested requirements without confirmation.
 
 ## Core Rules
 
-- **Anti-Hallucination**: Never invent unspecified business logic; resolve ambiguities through grilling or mark `[:HALT UNRESOLVED]`.
-- **Deterministic ACs**: Every acceptance criterion MUST be binary and provable.
-- **NFR-AC Binding**: Every non-functional requirement MUST reference at least one acceptance criterion.
-- **What, Not How**: Focus exclusively on problem domain and acceptance criteria, avoiding technical design leakage.
+- Never invent business logic; grill or mark `[:HALT UNRESOLVED]`.
+- Every AC MUST be binary and provable.
+- Every NFR MUST reference ≥1 AC.
+- What/why only. How belongs in the plan.

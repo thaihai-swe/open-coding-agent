@@ -11,72 +11,63 @@ triggers: ['maintain harness', 'harness health', 'diagnose harness', 'improve ha
 
 | | |
 |---|---|
-| **Reads** | `manifest.json`, `corebase-specharness/project/harness-config.yaml`, `core-policies.md` |
+| **Reads** | `manifest.json`, `harness-config.yaml`, `core-policies.md` |
 | **Writes** | Optional: `learned-heuristics.md` drafts, user-approved fixes |
 | **Key CLI** | `python3 corebase-specharness/scripts/core/cli.py doctor --json`, `python3 corebase-specharness/scripts/core/cli.py gate-check --json`, `python3 corebase-specharness/scripts/core/cli.py verify --feature <slug>` |
-| **Entry** | Directly invokable peer skill; return to the caller after the bounded procedure |
+| **Entry** | Direct peer skill; return to caller after the bounded procedure |
 
 ## Overview
 
-Interprets deterministic harness diagnostics, checks manifest drift, validates gate runner configurations, drafts learned heuristics from gate failures, and diagnoses agent quality issues.
-
-The CLI script runtime owns mechanical inspection and validation; this skill owns evidence-backed prioritization, quality diagnosis, and user-approved maintenance actions.
+Interpret harness diagnostics, check manifest drift, validate gates, draft heuristics from failures, diagnose agent quality. CLI owns mechanical inspection; this skill owns prioritization and user-approved actions.
 
 ## When to Use & Invocation Triggers
 
-- **When to Use**:
-  - Assessing repository harness health, manifest drift, or orphaned artifacts.
-  - Scaffolding missing standard directories or configuration placeholders.
-  - Processing current `verify` / `gate-check` findings to draft self-healing heuristics.
-  - Diagnosing agent execution failures or quality degradation.
+- **When to Use**: harness health / drift / orphans; scaffold missing dirs; process `verify`/`gate-check` findings; diagnose agent quality.
 - **Triggers**: `maintain harness`, `harness health`, `diagnose harness`, `improve harness`
 
 ## Execution Modes & Profiles
 
-| Mode | Condition / Trigger | Primary Focus & Outputs |
+| Mode | Trigger | Focus |
 |---|---|---|
-| `assess` | Periodic check or post-install audit | Evaluates manifest drift, orphan artifacts, and config health |
-| `create` | Missing infrastructure detected | Scaffolds missing standard directories (`memories/domain/`) |
-| `improve` | Diagnostics failure analysis | Reviews current `verify` / `gate-check` findings and drafts `[DRAFT]` heuristics |
-| `eval` | Release candidate audit | Validates `CC-*` rule sequentiality, manifest consistency, and gate configurations |
-| `doctor` | Maintenance fix mode | Runs assess mode, validates Markdown links, and confirms `doctor` remains clean |
-| `diagnose` | Agent quality degradation reported | Maps failure symptoms to root causes and fixes using `references/diagnosis-map.md` |
+| `assess` | Periodic / post-install | Manifest drift, orphans, config health |
+| `create` | Missing infrastructure | Scaffold `memories/domain/` and placeholders |
+| `improve` | Diagnostic failures | Draft `[DRAFT]` heuristics from findings |
+| `eval` | Release candidate | `CC-*` sequentiality, manifest, gates |
+| `doctor` | Fix mode | Assess + Markdown links + clean `doctor` |
+| `diagnose` | Quality degradation | Symptom → fix via `references/diagnosis-map.md` |
 
 ## I/O & Artifact Protocol
 
-- **Reads**: `manifest.json`, `corebase-specharness/project/harness-config.yaml`, `corebase-specharness/memories/repo/core-policies.md`.
-- **Writes**:
-  - `corebase-specharness/memories/repo/learned-heuristics.md` (appended `[DRAFT]` entries)
-  - User-approved maintenance updates to harness configs or policies
-- **Session State**: N/A (operates at repository harness level).
+- **Reads**: `manifest.json`, `harness-config.yaml`, `core-policies.md`.
+- **Writes**: `learned-heuristics.md` `[DRAFT]` entries; user-approved config/policy edits.
+- **Session**: N/A (repo-level).
 
 ## Step-by-Step Execution Workflow
 
-1. **Pre-flight & Mode Selection**:
-   - Select mode (`assess`, `create`, `improve`, `eval`, `doctor`, or `diagnose`).
+1. **Select mode**: `assess`, `create`, `improve`, `eval`, `doctor`, or `diagnose`.
 
-2. **Mode Execution Procedures**:
-   - *Assess Mode*: Run `python3 corebase-specharness/scripts/core/cli.py doctor --json`. Check `manifest.json` against actual file tree. Validate `corebase-specharness/project/harness-config.yaml`. Detect orphan feature directories lacking `status.md`.
-   - *Create Mode*: Read assessment report; scaffold missing standard directories or baseline placeholders.
-   - *Improve Mode*: Review current `verify` / `gate-check` findings. Draft evidence-backed `[DRAFT]` entries in `learned-heuristics.md`; do not promote them automatically.
-   - *Eval Mode*: Audit `CC-*` identifiers in `core-policies.md` for sequentiality. Run `python3 corebase-specharness/scripts/core/cli.py verify --feature <slug>` (or `python3 corebase-specharness/scripts/core/cli.py doctor`). Compare manifest against file tree.
-   - *Doctor Mode*: Run Assess steps, check for broken links in `skills/*/*.md`, and re-run `python3 corebase-specharness/scripts/core/cli.py doctor --json`.
-   - *Diagnose Mode*: Match reported failure symptom against `references/diagnosis-map.md`. Identify root cause category and propose targeted policy/heuristic fixes.
+2. **Execute**:
+   - *Assess*: `python3 corebase-specharness/scripts/core/cli.py doctor --json`. Diff `manifest.json` vs tree. Validate `harness-config.yaml`. Detect feature dirs lacking `status.md`.
+   - *Create*: scaffold missing standard dirs or placeholders.
+   - *Improve*: review `verify` / `gate-check`. Draft `[DRAFT]` entries; do not promote automatically.
+   - *Eval*: audit `CC-*` sequentiality. Run `python3 corebase-specharness/scripts/core/cli.py verify --feature <slug>` or `python3 corebase-specharness/scripts/core/cli.py doctor`. Compare manifest vs tree.
+   - *Doctor*: Assess + check links in `skills/*/*.md` + re-run `python3 corebase-specharness/scripts/core/cli.py doctor --json`.
+   - *Diagnose*: match symptom to `references/diagnosis-map.md`; propose targeted policy/heuristic fixes.
 
-3. **User Approval & Closeout**:
-   - Present drafted heuristics or configuration edits to user for explicit approval.
-   - Report summary of repaired items and remaining manual maintenance tasks.
+3. **Approve & close**:
+   - Present drafts for explicit user approval.
+   - Report repaired items and remaining manual work.
 
 ## Anti-Patterns & Red Flags
 
-- **Silent Rule Promotion**: Finalizing `[DRAFT]` heuristics or editing `core-policies.md` without explicit user review.
-- **Shadow Harness Edits**: Modifying python script engine files directly instead of updating manifest/config declarations.
-- **Bypassing Manifest Checks**: Shipping package releases without running `eval` mode manifest consistency audits.
+- Promoting `[DRAFT]` or editing `core-policies.md` without review.
+- Editing Python engine files instead of manifest/config.
+- Shipping without `eval` manifest consistency.
 
 ## Core Rules
 
-- **No Silent Promotion**: `improve` mode drafts heuristics as `[DRAFT]` only — user review is REQUIRED before promotion.
-- **Audit Before Release**: Package releases require running `eval` mode to ensure 100% manifest consistency.
-- **CLI Mechanics Ownership**: CLI owns mechanical inspection; this skill owns evidence-backed recommendations.
-- **Tight-Loop Gate Discovery**: When gate runners fail, ensure proposals include a fast, deterministic, red-capable command before drafting permanent heuristics.
-- **Harness Pruning**: Periodically remove obsolete constraints and simplify harness rules when the model has mastered the underlying capability.
+- `improve` drafts `[DRAFT]` only — user review REQUIRED before promotion.
+- Releases require `eval` for 100% manifest consistency.
+- CLI owns inspection; this skill owns recommendations.
+- Failed gates need a fast, deterministic, red-capable command before a permanent heuristic.
+- Periodically prune obsolete constraints.

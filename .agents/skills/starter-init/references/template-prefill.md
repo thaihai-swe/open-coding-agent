@@ -1,33 +1,33 @@
 ## Template Pre-Fill Mode
 
-The installer seeds 4 fillable documents under `corebase-specharness/project/`, plus `corebase-specharness/project/architecture.md` as a living doc. This skill pre-fills those seeded files so the user starts from evidence-based drafts instead of empty files. The goal is to reduce manual fill-in work, especially in brownfield repos where the answers already live in the code.
+Pre-fill seeded `corebase-specharness/project/` files from evidence so adopters start from drafts, not empty templates.
 
-**Tier 1 — AI Pre-Fills From Code Evidence (user refines later):**
+**Tier 1 — Pre-fill from code (user refines later):**
 
-Read the repository and populate these from concrete evidence. Cite the source (file or config) where it adds confidence. Never invent values.
+Cite the source. Never invent values.
 
 | Template | Pre-Fill From |
 |-|-|
-| `corebase-specharness/project/tech-stack.md` | `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, lockfiles, import statements, framework config |
-| `corebase-specharness/project/architecture.md` | Top-level folder layout, module boundaries, entry points, build/CI config |
-| `corebase-specharness/project/project-constraints.md` | CI/CD settings, runtime version pins, resource limits, declared compliance tooling |
+| `tech-stack.md` | `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, lockfiles, imports, framework config |
+| `architecture.md` | Top-level layout, module boundaries, entry points, build/CI |
+| `project-constraints.md` | CI/CD, runtime pins, resource limits, compliance tooling |
 
-**Tier 2 — AI Asks Clarifying Questions (user-owned context):**
+**Tier 2 — Ask clarifying questions:**
 
-These need product, business, or policy context that is not reliably inferable from code. Ask 2-4 focused questions per template, then fill what the user answers. Leave unanswered sections as `[USER REVIEW NEEDED]`.
+Ask 2–4 focused questions per template. Leave unanswered sections `[USER REVIEW NEEDED]`.
 
 | Template | Ask About |
 |-|-|
-| `corebase-specharness/project/product-sense.md` | Who the users are, the core problem, success metrics |
-| `corebase-specharness/project/glossary.md` | Domain terms with ambiguous or overloaded meaning |
+| `product-sense.md` | Users, core problem, success metrics |
+| `glossary.md` | Domain terms with ambiguous meaning |
 
 **Pre-Fill Rules:**
 
-- **Operate only on seeded files:** If a target doc is missing, stop and repair the install surface. Do not create ad-hoc replacements during init.
-- **Brownfield:** Pre-fill Tier 1 aggressively from code. The repository is the system of record.
-- **Greenfield:** Tier 1 evidence is thin. Fill what config exists, mark the rest `[USER REVIEW NEEDED]`.
-- **Fact vs decision:** Stack, entrypoints, CI commands, and folder layout are facts. Product vision, SLOs, compliance, and gate confirmation are decisions.
-- **Frontier questions:** Ask remaining Tier 2 decisions in one numbered batch with a recommended default. Do not serialize unblocked questions.
-- **No fabrication:** If a value is not in the code and the user has not stated it, mark it `[UNKNOWN]` or `[USER REVIEW NEEDED]`. Do not guess product vision, SLOs, or compliance requirements.
-- **Idempotent:** If a template already has user content (not the original template body), do not overwrite it. Append observations under a clearly marked section instead.
-- **Report:** After pre-fill, list which templates were filled, which need user review, and where `[UNKNOWN]` or `[USER REVIEW NEEDED]` markers remain.
+- Operate only on seeded files. If a target is missing, stop and repair the install surface.
+- Brownfield: fill Tier 1 aggressively. The repo is the system of record.
+- Greenfield: fill what config exists; mark the rest `[USER REVIEW NEEDED]`.
+- Facts vs decisions: stack, entrypoints, CI, layout are facts. Vision, SLOs, compliance, gate confirmation are decisions.
+- Ask remaining Tier 2 decisions in one numbered batch with a recommended default.
+- If not in code and not stated, mark `[UNKNOWN]` or `[USER REVIEW NEEDED]`.
+- Idempotent: do not overwrite user content. Append observations under a marked section.
+- Report which templates were filled, which need review, and remaining `[UNKNOWN]` markers.
