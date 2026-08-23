@@ -1,0 +1,83 @@
+[MAIN]
+
+# Use multiple threads to speed up Pylint.
+jobs=1
+
+# Ignore these directories/files (by base name glob).
+ignore-patterns=
+    __pycache__,
+    \.eggs,
+    \.git,
+    \.hg,
+    \.mypy_cache,
+    \.tox,
+    \.venv,
+    _build,
+    buck-out,
+    build,
+    dist,
+    venv
+
+# Only check source under src/ and tests/.
+ignore-paths=
+    corebase-specharness,
+    artifacts,
+    documents
+
+[MESSAGES CONTROL]
+
+# Disable noisy/useless rules: docstring, missing-docstring family,
+# too-few-public-methods, too-many-arguments, too-many-locals,
+# too-many-branches, too-many-statements, invalid-name family,
+# import-order, line length, etc.
+disable=
+    C0114,  # missing-module-docstring
+    C0115,  # missing-class-docstring
+    C0116,  # missing-function-docstring
+    C0117,  # docstring-first-line-empty  (old-style)
+    R0903,  # too-few-public-methods
+    R0913,  # too-many-arguments
+    R0914,  # too-many-locals
+    R0915,  # too-many-branches
+    R0916,  # too-many-statements
+    R0912,  # too-many-instance-attributes
+    R0917,  # too-many-public-methods
+    R0911,  # too-many-return-statements
+    W0613,  # unused-argument (covers most unused args)
+    W0621,  # redefined-outer-name
+    W0122,  # exec-used
+    W0406,  # import-self
+    E0602,  # undefined-name (covers import errors)
+    C0301,  # line-too-long (will override with max-line-length)
+    C0305,  # trailing-newlines (allow some)
+    W0718,  # broad-exception-caught
+    R1732,  # consider-using-with
+    W0212,  # protected-access
+    C0415,  # import-outside-toplevel
+    W1510,  # subprocess-run-check
+    E0611,  # no-name-in-module (brownfield shim src/tools.py alongside src/tools/)
+
+[FORMAT]
+# Keep 88-char line length; matches project style.
+max-line-length=88
+
+[VARIABLES]
+# Allow unused loop variables like `_`.
+dummy-variables-rgx=_+$|(_[a-zA-Z0-9_]*[a-zA-Z0-9]+$)|dummy|^ignored_|^unused
+
+[DESIGN]
+max-line-length=88
+max-args=10
+max-locals=20
+max-returns=10
+max-branches=15
+max-statements=60
+max-parents=10
+max-attributes=10
+min-public-methods=1
+max-public-methods=25
+max-bool-expr=5
+
+[TYPECHECK]
+# Don't fail on imports not installed in this environment.
+ignored-modules=

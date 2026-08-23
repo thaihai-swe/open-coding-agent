@@ -1,1 +1,0 @@
-"""Embedded CoreZero harness primitives."""

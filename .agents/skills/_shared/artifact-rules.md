@@ -6,7 +6,7 @@
 - Plan (`plan.md`) defines approach, public seams, module map, risks, and proof surfaces
 - Tasks (`tasks.md`) defines granular T-NNN items (e.g., `T-001`) with status, proof commands, and AC links
 - Review (`review.md`) captures findings with Two-Axis Code Review (Standards vs Spec), decision, and follow-up
-- ADRs live in `core-zero/project/adr/` using `NNNN-<slug>.md`; ADR-NNN remains the logical identifier
+- ADRs live in `corebase-specharness/project/adr/` using `NNNN-<slug>.md`; ADR-NNN remains the logical identifier
 
 ### AC/Task Linkage & Slicing
 

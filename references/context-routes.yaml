@@ -7,13 +7,13 @@ skills:
     prerequisites: []
     feature_artifacts: []
     writes:
-      - core-zero/project
-      - core-zero/memories/repo
+      - corebase-specharness/project
+      - corebase-specharness/memories/repo
     handoff: [spec-research, spec-requirements]
     sources:
-      - {path: core-zero/project/harness-config.yaml, tier: Must, sections: []}
-      - {path: core-zero/project/project-constraints.md, tier: Should, sections: [Performance Budgets, Technology Constraints, Operational Constraints]}
-      - {path: core-zero/project/tech-stack.md, tier: Should, sections: [Languages & Runtimes, Frameworks, Development Tools]}
+      - {path: corebase-specharness/project/harness-config.yaml, tier: Must, sections: []}
+      - {path: corebase-specharness/project/project-constraints.md, tier: Should, sections: [Performance Budgets, Technology Constraints, Operational Constraints]}
+      - {path: corebase-specharness/project/tech-stack.md, tier: Should, sections: [Languages & Runtimes, Frameworks, Development Tools]}
   - skill: spec-research
     phase: Spec
     enter: Researching
@@ -27,7 +27,7 @@ skills:
       - {path: status.md, required: false}
     handoff: [spec-requirements, spec-adr]
     sources:
-      - {path: core-zero/project/architecture.md, tier: Should, sections: [System Snapshot, Top-Level Components, Runtime Boundaries]}
+      - {path: corebase-specharness/project/architecture.md, tier: Should, sections: [System Snapshot, Top-Level Components, Runtime Boundaries]}
   - skill: spec-requirements
     phase: Spec
     enter: Specifying
@@ -43,8 +43,8 @@ skills:
       - {path: status.md, required: false}
     handoff: [spec-plan, spec-research]
     sources:
-      - {path: core-zero/project/product-sense.md, tier: Must, sections: []}
-      - {path: core-zero/project/project-constraints.md, tier: Must, sections: [Performance Budgets, Compliance Requirements, Security Requirements, Operational Constraints]}
+      - {path: corebase-specharness/project/product-sense.md, tier: Must, sections: [Product Vision, Problem Statement, Domain Context & Business Rules, Success Metrics]}
+      - {path: corebase-specharness/project/project-constraints.md, tier: Must, sections: [Performance Budgets, Compliance Requirements, Security Requirements, Operational Constraints]}
   - skill: spec-plan
     phase: Plan
     enter: Planning
@@ -52,19 +52,15 @@ skills:
     profile: planning
     feature: required
     prerequisites: [spec.md]
-    feature_artifacts:
-      - status.md
-      - spec.md
-      - {kind: "session", name: "session.md"}
+    feature_artifacts: [status.md, spec.md, {kind: session, name: session.md}]
     writes:
       - plan.md
       - {path: status.md, required: false}
     handoff: [spec-tasks, spec-research, spec-adr]
     sources:
-      - {path: core-zero/project/architecture.md, tier: Must, sections: [System Snapshot, Top-Level Components, Runtime Boundaries, Safe Change Guidance]}
-      - {path: core-zero/rules/ponytail.md, tier: Must, sections: [Decision Matrix: Should You Create an Abstraction?]}
-      - {path: core-zero/rules/architecture-principles.md, tier: Should, sections: [Deep Modules and Test Seams]}
-      - {path: core-zero/rules/code-design.md, tier: Should, sections: [Abstraction Check & Deep Modules]}
+      - {path: corebase-specharness/project/architecture.md, tier: Must, sections: [System Snapshot, Top-Level Components, Runtime Boundaries, Safe Change Guidance]}
+      - {path: corebase-specharness/rules/ponytail.md, tier: Must, sections: [Decision Matrix: Should You Create an Abstraction?]}
+      - {path: corebase-specharness/rules/code-design.md, tier: Should, sections: [Abstraction Check & Deep Modules, Clean Architecture & Layering, Domain-Driven Design (DDD)]}
   - skill: spec-tasks
     phase: Plan
     enter: TaskPlanning
@@ -72,18 +68,14 @@ skills:
     profile: planning
     feature: required
     prerequisites: [spec.md, plan.md]
-    feature_artifacts:
-      - status.md
-      - spec.md
-      - plan.md
-      - {kind: "session", name: "session.md"}
+    feature_artifacts: [status.md, spec.md, plan.md, {kind: session, name: session.md}]
     writes:
       - tasks.md
       - {path: status.md, required: false}
     handoff: [spec-implement, spec-plan]
     sources:
-      - {path: core-zero/project/architecture.md, tier: Should, sections: [System Snapshot, Top-Level Components]}
-      - {path: core-zero/rules/code-design.md, tier: Must, sections: [Read before you write]}
+      - {path: corebase-specharness/project/architecture.md, tier: Should, sections: [System Snapshot, Top-Level Components]}
+      - {path: corebase-specharness/rules/code-design.md, tier: Must, sections: [Read before you write]}
   - skill: spec-implement
     phase: Implement
     enter: Implementing
@@ -91,12 +83,7 @@ skills:
     profile: implement
     feature: required
     prerequisites: [spec.md, plan.md, tasks.md]
-    feature_artifacts:
-      - status.md
-      - spec.md
-      - plan.md
-      - tasks.md
-      - {kind: "session", name: "session.md"}
+    feature_artifacts: [status.md, spec.md, plan.md, tasks.md, {kind: session, name: session.md}]
     writes:
       - {path: tasks.md, required: false}
       - {path: status.md, required: false}
@@ -104,8 +91,8 @@ skills:
       - project-source
     handoff: [harness-verify, spec-plan, spec-requirements]
     sources:
-      - {path: core-zero/rules/security.md, tier: Must, sections: [Core Rules, Shell and Script Safety, File and Artifact Boundaries, Verification]}
-      - {path: core-zero/rules/code-design.md, tier: Must, sections: [Read before you write, Abstraction Check & Deep Modules, Failures must reach a decision-maker, Verify the path you claim to have fixed]}
+      - {path: corebase-specharness/rules/security.md, tier: Must, sections: [Core Rules, Shell and Script Safety, File and Artifact Boundaries, Verification]}
+      - {path: corebase-specharness/rules/code-design.md, tier: Must, sections: [Read before you write, Abstraction Check & Deep Modules, Clean Architecture & Layering, Failures must reach a decision-maker, Verify the path you claim to have fixed]}
   - skill: harness-verify
     phase: Verify
     enter: Verifying
@@ -113,36 +100,28 @@ skills:
     profile: verify
     feature: required
     prerequisites: [spec.md, plan.md, tasks.md]
-    feature_artifacts:
-      - status.md
-      - tasks.md
-      - plan.md
-      - spec.md
-      - {kind: "session", name: "session.md"}
+    feature_artifacts: [status.md, tasks.md, plan.md, spec.md, {kind: session, name: session.md}]
     writes:
       - review.md
       - {path: status.md, required: false}
     handoff: [context-memory, spec-implement, spec-plan]
     sources:
-      - {path: core-zero/rules/security.md, tier: Must, sections: [Verification]}
-      - {path: core-zero/project/harness-config.yaml, tier: Must, sections: []}
+      - {path: corebase-specharness/rules/security.md, tier: Must, sections: [Verification]}
+      - {path: corebase-specharness/project/harness-config.yaml, tier: Must, sections: []}
   - skill: context-memory
     phase: Verify
     profile: compact
     feature: optional
     prerequisites: []
-    feature_artifacts:
-      - status.md
-      - session-extracts.md
-      - {kind: "session", name: "session.md"}
+    feature_artifacts: [status.md, session-extracts.md, {kind: session, name: session.md}]
     writes:
-      - core-zero/memories/repo
-      - core-zero/memories/domain
+      - corebase-specharness/memories/repo
+      - corebase-specharness/memories/domain
       - {path: session-extracts.md, required: false}
     handoff: [harness-verify]
     sources:
-      - {path: core-zero/memories/repo/core-policies.md, tier: Must, sections: [Memory Promotion Thresholds, Security Policy]}
-      - {path: core-zero/memories/repo/learned-heuristics.md, tier: Must, sections: [Heuristics]}
+      - {path: corebase-specharness/memories/repo/core-policies.md, tier: Must, sections: [Memory Promotion Thresholds, Security Policy]}
+      - {path: corebase-specharness/memories/repo/learned-heuristics.md, tier: Must, sections: [Heuristics]}
   - skill: harness-maintain
     phase: Verify
     profile: verify
@@ -150,11 +129,11 @@ skills:
     prerequisites: []
     feature_artifacts: [status.md]
     writes:
-      - {path: core-zero/generated/harness-assessment.md, required: false}
-      - {path: core-zero/memories/repo/learned-heuristics.md, required: false}
+      - {path: corebase-specharness/generated/harness-assessment.md, required: false}
+      - {path: corebase-specharness/memories/repo/learned-heuristics.md, required: false}
     handoff: []
     sources:
-      - {path: core-zero/project/harness-config.yaml, tier: Must, sections: []}
+      - {path: corebase-specharness/project/harness-config.yaml, tier: Must, sections: []}
   - skill: spec-adr
     phase: Plan
     profile: planning
@@ -162,12 +141,12 @@ skills:
     prerequisites: []
     feature_artifacts: [status.md, spec.md, plan.md]
     writes:
-      - core-zero/project/adr
-      - {path: core-zero/memories/repo/adr-log.md, required: false}
+      - corebase-specharness/project/adr
+      - {path: corebase-specharness/memories/repo/adr-log.md, required: false}
     handoff: []
     sources:
-      - {path: core-zero/project/architecture.md, tier: Must, sections: [System Snapshot, Runtime Boundaries, Safe Change Guidance]}
-      - {path: core-zero/rules/architecture-principles.md, tier: Should, sections: [Deep Modules and Test Seams]}
+      - {path: corebase-specharness/project/architecture.md, tier: Must, sections: [System Snapshot, Runtime Boundaries, Safe Change Guidance]}
+      - {path: corebase-specharness/rules/code-design.md, tier: Should, sections: [Clean Architecture & Layering, Domain-Driven Design (DDD)]}
   - skill: spec-testing-scenario
     phase: Verify
     profile: verify
@@ -178,4 +157,4 @@ skills:
       - testing-scenarios.md
     handoff: []
     sources:
-      - {path: core-zero/project/project-constraints.md, tier: Should, sections: []}
+      - {path: corebase-specharness/project/project-constraints.md, tier: Should, sections: [Performance Budgets, Compliance Requirements, Security Requirements, Operational Constraints]}

@@ -1,6 +1,6 @@
 ## Template Pre-Fill Mode
 
-The installer seeds 4 fillable documents under `core-zero/project/`, plus `core-zero/project/architecture.md` as a living doc. This skill pre-fills those seeded files so the user starts from evidence-based drafts instead of empty files. The goal is to reduce manual fill-in work, especially in brownfield repos where the answers already live in the code.
+The installer seeds 4 fillable documents under `corebase-specharness/project/`, plus `corebase-specharness/project/architecture.md` as a living doc. This skill pre-fills those seeded files so the user starts from evidence-based drafts instead of empty files. The goal is to reduce manual fill-in work, especially in brownfield repos where the answers already live in the code.
 
 **Tier 1 — AI Pre-Fills From Code Evidence (user refines later):**
 
@@ -8,9 +8,9 @@ Read the repository and populate these from concrete evidence. Cite the source (
 
 | Template | Pre-Fill From |
 |-|-|
-| `core-zero/project/tech-stack.md` | `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, lockfiles, import statements, framework config |
-| `core-zero/project/architecture.md` | Top-level folder layout, module boundaries, entry points, build/CI config |
-| `core-zero/project/project-constraints.md` | CI/CD settings, runtime version pins, resource limits, declared compliance tooling |
+| `corebase-specharness/project/tech-stack.md` | `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, lockfiles, import statements, framework config |
+| `corebase-specharness/project/architecture.md` | Top-level folder layout, module boundaries, entry points, build/CI config |
+| `corebase-specharness/project/project-constraints.md` | CI/CD settings, runtime version pins, resource limits, declared compliance tooling |
 
 **Tier 2 — AI Asks Clarifying Questions (user-owned context):**
 
@@ -18,8 +18,8 @@ These need product, business, or policy context that is not reliably inferable f
 
 | Template | Ask About |
 |-|-|
-| `core-zero/project/product-sense.md` | Who the users are, the core problem, success metrics |
-| `core-zero/project/glossary.md` | Domain terms with ambiguous or overloaded meaning |
+| `corebase-specharness/project/product-sense.md` | Who the users are, the core problem, success metrics |
+| `corebase-specharness/project/glossary.md` | Domain terms with ambiguous or overloaded meaning |
 
 **Pre-Fill Rules:**
 

@@ -1,0 +1,57 @@
+# CoreBase SpecHarness adopter-owned configuration.
+# The embedded kit ships no executable verification gates. The implementing
+# agent proposes project-native commands; an adopter explicitly confirms them
+# before adding them here.
+# `deferred` means the seed still needs `/starter-init` review. `ready` means
+# an adopter reviewed project context and explicitly confirmed its gates.
+project_setup:
+  status: deferred # deferred | in_progress | ready — adopter deferred gate confirmation on 2026-08-22
+  reviewed_at: null
+lifecycle_overrides: {}
+
+gate_defaults:
+  on_fail: block
+
+verification:
+  # Advisory mode reports evidence gaps without mechanically blocking a
+  # repo-owner lifecycle decision. Switch to blocking after gates are trusted.
+  mode: advisory
+
+# Add confirmed commands as argv-safe gates, for example:
+# gates:
+#   - name: test
+#     command: ["python3", "-m", "pytest"]
+#     on_fail: block
+#     category: test
+gates: []
+
+thresholds:
+  timeout_seconds: 300
+  memory_warn_lines: 200
+  memory_hard_lines: 3200
+  session_warn_tokens: 40000
+  session_hard_tokens: 80000
+
+context:
+  # Portable limits: do not assume an agent exposes its model context window.
+  max_injected_tokens: 6000
+  reserve_tokens: 1500
+  max_bootstrap_tokens: 800
+  max_project_tokens: 1200
+  max_feature_tokens: 1600
+  max_retrieved_tokens: 1600
+  max_source_excerpt_tokens: 600
+  max_retrieval_files: 6
+  max_tool_output_tokens: 800
+  payload_budget: 2500
+  retrieval:
+    roots: [.]
+    exclude: [".git", ".corezero", "node_modules", "dist", "build", "coverage", "corebase-specharness/generated"]
+  profiles:
+    bootstrap: {payload: 2500}
+    research: {payload: 4000}
+    requirements: {payload: 3500}
+    planning: {payload: 3500}
+    implement: {payload: 4000}
+    verify: {payload: 3500}
+    compact: {payload: 2500}

@@ -444,3 +444,4 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+corebase-specharness/generated/*

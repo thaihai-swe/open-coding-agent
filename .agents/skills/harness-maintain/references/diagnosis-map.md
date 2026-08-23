@@ -4,7 +4,7 @@ When the user is frustrated with agent output, the problem is almost always in t
 
 ## Symptom → Root Cause → Fix
 
-| User Complaint | Harness Layer | Root Cause | Fix | CoreZero Route |
+| User Complaint | Harness Layer | Root Cause | Fix | CoreBase SpecHarness Route |
 |-|-|-|-|-|
 | "It keeps making the same mistake" | Constraints | No rule preventing it | Add lint rule, type check, or test | `/harness-maintain improve` → draft LH-* rule |
 | "It doesn't follow our conventions" | Context | Conventions not documented or discoverable | Write convention in `docs/`, reference from AGENTS.md | `/spec-research` brownfield mapping |
@@ -13,7 +13,7 @@ When the user is frustrated with agent output, the problem is almost always in t
 | "It writes mediocre code" | Context | No examples of good code in context | Add code examples or patterns to domain pack | `/context-memory` → domain pack patterns.md |
 | "It writes shallow wrappers" | Architecture | Speculative seams or one-adapter abstractions | Apply deletion test and two-adapter rule | `/spec-plan` + `code-design.md` Abstraction Check |
 | "It debugs by guessing" | Feedback | No red-capable command before hypotheses | Require a fast deterministic failing command first | `/spec-research` tight feedback loop |
-| "It forgets what we discussed" | Memory | Cross-session context not persisted | Write decisions to `session.md` | `python3 core-zero/scripts/core/cli.py session-end` → session-extracts |
+| "It forgets what we discussed" | Memory | Cross-session context not persisted | Write decisions to `session.md` | `python3 corebase-specharness/scripts/core/cli.py session-end` → session-extracts |
 | "It declares done too early" | Verification | No verification step or checklist | Add AC with proof command, run `/harness-verify` | `/harness-verify` |
 | "It uses wrong patterns" | Context | Competing patterns, no guidance on which to use | Document which pattern when in domain pack | `/context-memory` → domain pack |
 | "Output quality is inconsistent" | Feedback | No evaluation/feedback loop | Add eval rubric, run multi-pass eval | `/harness-maintain eval` |
@@ -59,7 +59,7 @@ Every time an agent makes a mistake:
 3. If yes → add the rule (lint, test, type, or documented convention)
 4. If no → add context (docs, examples, domain pack entries)
 
-Over time, the harness accumulates rules that prevent every mistake the agent has ever made. The error rate converges toward zero for known failure modes. See CC-013 in `core-zero/memories/repo/core-policies.md`.
+Over time, the harness accumulates rules that prevent every mistake the agent has ever made. The error rate converges toward zero for known failure modes. See CC-008 in `corebase-specharness/memories/repo/core-policies.md`.
 
 ## When to Simplify
 

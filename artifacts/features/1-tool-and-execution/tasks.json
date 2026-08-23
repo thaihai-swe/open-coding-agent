@@ -1,0 +1,191 @@
+{
+  "source": "tasks.md",
+  "generated_at": "2026-08-22T23:52:52",
+  "errors": [],
+  "task_count": 9,
+  "tasks": [
+    {
+      "id": "T-001",
+      "header": "- [x] T-001 [US1] `src/tools/handlers/search.py`, `tests/tools_check.py` \u2014 add failing `tools_check` then register `glob` as the same handler as `glob_search`; prove in-cwd `read_file`/`write_file`/`edit_file`/`bash`/`glob_search`/`glob` and extra `grep_search` via `invoke` / `registry.list_schemas`",
+      "status": "Done",
+      "done": true,
+      "depends": [],
+      "evidence": [
+        "`python3 tests/tools_check.py`",
+        "python3 tests/tools_check.py 6/6 OK; python3 tests/query_engine_check.py 5/5 OK; glob registered as glob_search alias; AC-001/002/003/005. verify: phase-check/artifact-check/traceability/gate-runner pass; review-provider skipped; gates deferred."
+      ],
+      "acceptance_criteria": [
+        "AC-005",
+        "AC-001",
+        "AC-002",
+        "AC-003"
+      ]
+    },
+    {
+      "id": "T-002",
+      "header": "- [x] T-002 [US2] `src/tools/workspace.py`, `src/tools/handlers/file_io.py`, `src/tools/handlers/search.py`, `tests/tools_check.py` \u2014 add `bound_path`; handlers refuse resolved real paths outside cwd (including symlink escape) before IO; filter glob/grep matches; do not jail `bash`",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-001"
+      ],
+      "evidence": [
+        "`python3 tests/tools_check.py`",
+        "python3 tests/tools_check.py 10/10 OK; query_engine_check 5/5 OK; bound_path refuses .. and symlink escape; bash still reads outside file; AC-006/007/008."
+      ],
+      "acceptance_criteria": [
+        "AC-008",
+        "AC-007",
+        "AC-006"
+      ]
+    },
+    {
+      "id": "T-003",
+      "header": "- [x] T-003 [US3] `src/application/query_engine.py`, `tests/query_engine_check.py` \u2014 replace serial `_run_call` loop with `_run_batch` using `ThreadPoolExecutor`; unknown tool \u2192 error result; mixed success/failure still records every result; listed-order history even if B finishes first; next `complete` only after the batch",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-002"
+      ],
+      "evidence": [
+        "`python3 tests/query_engine_check.py`",
+        "python3 tests/query_engine_check.py 9/9 OK; unknown tool error continues; overlap B-before-A with listed-order history; mixed failure keeps sibling; next complete sees both tool results. AC-004/009/010/013."
+      ],
+      "acceptance_criteria": [
+        "AC-013",
+        "AC-009",
+        "AC-010",
+        "AC-004"
+      ]
+    },
+    {
+      "id": "T-004",
+      "header": "- [x] T-004 [US3] `src/application/query_engine.py`, `tests/query_engine_check.py` \u2014 sequential MEDIUM/HIGH authorize in listed order before overlap; deny emits `tool_denied` and does not invoke; other calls still get results; emit `status` then `tool` starts on the main thread, then `tool_result` in listed order after `wait=True`",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-003"
+      ],
+      "evidence": [
+        "`python3 tests/query_engine_check.py`",
+        "python3 tests/query_engine_check.py 12/12 OK; deny skips handler and keeps sibling; authorize listed order before any run; status then tool then tool_result. AC-011/012/015."
+      ],
+      "acceptance_criteria": [
+        "AC-015",
+        "AC-011",
+        "AC-012"
+      ]
+    },
+    {
+      "id": "T-005",
+      "header": "- [x] T-005 [US4] `src/presentation/terminal_ui.py`, `tests/terminal_ui_check.py` \u2014 print plain `tool` / `tool_result` / `status` / `error` lines; JSON mode emits `text` | `tool` | `tool_denied` | `error` | `status` | `tool_result` without Markdown rendering",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-004"
+      ],
+      "evidence": [
+        "`python3 tests/terminal_ui_check.py`",
+        "python3 tests/terminal_ui_check.py 5/5 OK; human prints [tool]/[status]/[tool_result]/Error; JSON types text|tool|tool_denied|error|status|tool_result with raw content. AC-014/016."
+      ],
+      "acceptance_criteria": [
+        "AC-016",
+        "AC-014"
+      ]
+    },
+    {
+      "id": "T-006",
+      "header": "- [x] T-006 [US4] `src/presentation/cli.py`, `tests/cli_check.py` \u2014 KeyboardInterrupt during the REPL saves the session and returns 130 (change `cli.py` only if the new test fails)",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-003"
+      ],
+      "evidence": [
+        "`python3 tests/cli_check.py`",
+        "python3 tests/cli_check.py 4/4 OK; KeyboardInterrupt during prompt returns 130 and writes session JSON; cli.py unchanged (path already existed). AC-017."
+      ],
+      "acceptance_criteria": [
+        "AC-017",
+        "AC-023",
+        "AC-018"
+      ]
+    },
+    {
+      "id": "T-007",
+      "header": "- [x] T-007 [US5] `src/presentation/terminal_ui.py`, `tests/terminal_ui_check.py` \u2014 `prompt` accumulates lines; first empty line returns `\"\"`; solo `.` submits joined text; EOF submits accumulation",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-005"
+      ],
+      "evidence": [
+        "`python3 tests/terminal_ui_check.py`",
+        "python3 tests/terminal_ui_check.py 9/9 OK; period-submit hello\\nworld; empty first line quits; EOF submits accumulation; json_mode same. AC-018/019/020."
+      ],
+      "acceptance_criteria": [
+        "AC-019",
+        "AC-020",
+        "AC-018"
+      ]
+    },
+    {
+      "id": "T-008",
+      "header": "- [x] T-008 [US6] `src/presentation/terminal_ui.py`, `tests/terminal_ui_check.py` \u2014 private `_render_markdown` on human `text` only (ATX heading + `**bold**`); tool/status/error/`tool_result` stay plain; JSON `content` stays source",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-007"
+      ],
+      "evidence": [
+        "`python3 tests/terminal_ui_check.py`",
+        "python3 tests/terminal_ui_check.py 12/12 OK; human text renders ATX/bold; tool/status/error/tool_result keep markers; JSON content is source. AC-021/022/023."
+      ],
+      "acceptance_criteria": [
+        "AC-022",
+        "AC-021",
+        "AC-023"
+      ]
+    },
+    {
+      "id": "T-009",
+      "header": "- [x] T-009 `src/`, `tests/` \u2014 run the full app check pack; fix only regressions caused by this feature",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-006",
+        "T-008"
+      ],
+      "evidence": [
+        "`python3 -m compileall -q src` && `python3 -m unittest discover -s tests -p '*_check.py'`",
+        "python3 -m compileall -q src OK; python3 -m unittest discover -s tests -p '*_check.py' 47/47 OK. No regressions to fix."
+      ],
+      "acceptance_criteria": [
+        "AC-013",
+        "AC-006",
+        "AC-002",
+        "AC-018",
+        "AC-022",
+        "AC-009",
+        "AC-010",
+        "AC-001",
+        "AC-023",
+        "AC-016",
+        "AC-014",
+        "AC-007",
+        "AC-021",
+        "AC-011",
+        "AC-012",
+        "AC-003",
+        "AC-008",
+        "AC-005",
+        "AC-015",
+        "AC-020",
+        "AC-004",
+        "AC-019",
+        "AC-017"
+      ]
+    }
+  ],
+  "markdown_hash": "2b27f5a0d82cebd63e2d425cc6ca621d2559548a699ddc416ff3269c991f335d"
+}

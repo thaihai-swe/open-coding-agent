@@ -33,6 +33,7 @@ def run(argv: list[str] | None = None) -> int:
     ui = TerminalUI(json_mode=args.json_mode)
     engine = QueryEngine(provider, store, session_id, ui.authorize, ui.event)
     print(f"Session: {session_id}", file=sys.stderr)
+    print("Enter sends. Shift+Enter adds a newline.", file=sys.stderr)
     try:
         while True:
             prompt = ui.prompt()

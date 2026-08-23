@@ -1,10 +1,14 @@
 import os
 from typing import Any, Dict
+
 from ..registry import Tool, registry
 from ..types import Status
+from ..workspace import bound_path
 
 
 def read_file(file_path: str, offset: int = 1, limit: int = 2000, pages: str = "") -> str:
+    """Read and return a numbered range of lines from a file."""
+    file_path = str(bound_path(file_path))
     with open(file_path, "r", encoding="utf-8", errors="replace") as file:
         lines = file.readlines()
     selected = lines[offset - 1 : offset - 1 + limit]
@@ -12,13 +16,15 @@ def read_file(file_path: str, offset: int = 1, limit: int = 2000, pages: str = "
 
 
 def write_file(file_path: str, content: str) -> Dict[str, Any]:
-    os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
-    with open(file_path, "w", encoding="utf-8") as file:
+    target = bound_path(file_path)
+    os.makedirs(target.parent, exist_ok=True)
+    with open(target, "w", encoding="utf-8") as file:
         file.write(content)
     return {"status": Status.SUCCESS, "file_path": file_path, "bytes": len(content)}
 
 
 def edit_file(file_path: str, old_string: str, new_string: str, replace_all: bool = False) -> Dict[str, Any]:
+    file_path = str(bound_path(file_path))
     with open(file_path, "r", encoding="utf-8") as file:
         content = file.read()
     count = content.count(old_string)

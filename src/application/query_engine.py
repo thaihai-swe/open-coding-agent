@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from typing import Any
 
@@ -46,10 +47,7 @@ class QueryEngine:
             self._save()
             if not response.message.tool_calls:
                 return replace(response, termination_reason="completed")
-            for call in response.message.tool_calls:
-                result = self._run_call(call)
-                self.history.append(ChatMessage("tool", tool_result=result))
-                self._save()
+            self._run_batch(response.message.tool_calls)
         return replace(response, termination_reason="max_turns_reached")
 
     def _collect_stream(self, deltas: Any) -> ProviderResponse:
@@ -63,16 +61,38 @@ class QueryEngine:
                 tool_calls = delta.tool_calls
         return ProviderResponse(ChatMessage("assistant", "".join(content) or None, tool_calls))
 
-    def _run_call(self, call: ToolCall) -> ToolResult:
-        tool = registry.get(call.name)
-        if tool is None:
-            return ToolResult(call.id, {"error": f"Unknown tool: {call.name}"}, True)
-        if not isinstance(call.arguments, dict):
-            return ToolResult(call.id, {"error": "Tool arguments must be an object."}, True)
-        if tool.risk_level in {Risk.HIGH, Risk.MEDIUM} and not self.authorize(call.name, call.arguments):
-            self.on_event({"type": "tool_denied", "name": call.name, "arguments": call.arguments})
-            return ToolResult(call.id, {"error": "Tool execution denied by user."}, True)
-        self.on_event({"type": "tool", "name": call.name, "arguments": call.arguments})
+    def _run_batch(self, tool_calls: tuple[ToolCall, ...]) -> None:
+        results: list[ToolResult | None] = [None] * len(tool_calls)
+        approved: list[tuple[int, ToolCall, Any]] = []
+        for index, call in enumerate(tool_calls):
+            tool = registry.get(call.name)
+            if tool is None:
+                results[index] = ToolResult(call.id, {"error": f"Unknown tool: {call.name}"}, True)
+                continue
+            if not isinstance(call.arguments, dict):
+                results[index] = ToolResult(call.id, {"error": "Tool arguments must be an object."}, True)
+                continue
+            if tool.risk_level in {Risk.HIGH, Risk.MEDIUM} and not self.authorize(call.name, call.arguments):
+                self.on_event({"type": "tool_denied", "name": call.name, "arguments": call.arguments})
+                results[index] = ToolResult(call.id, {"error": "Tool execution denied by user."}, True)
+                continue
+            approved.append((index, call, tool))
+        if approved:
+            self.on_event({"type": "status", "message": "running tools"})
+            for _index, call, _tool in approved:
+                self.on_event({"type": "tool", "name": call.name, "arguments": call.arguments})
+            with ThreadPoolExecutor(max_workers=len(approved)) as pool:
+                futures = [(index, pool.submit(self._invoke_call, call, tool)) for index, call, tool in approved]
+            for index, future in futures:
+                results[index] = future.result()
+        for index, call in enumerate(tool_calls):
+            result = results[index]
+            assert result is not None
+            self.on_event({"type": "tool_result", "name": call.name, "content": result.content, "is_error": result.is_error})
+            self.history.append(ChatMessage("tool", tool_result=result))
+        self._save()
+
+    def _invoke_call(self, call: ToolCall, tool: Any) -> ToolResult:
         try:
             result = invoke(call.name, **call.arguments, **({"bypass_permissions": True} if tool.risk_level == Risk.HIGH else {}))
             return ToolResult(call.id, result, result.get("status") == "error")

@@ -11,10 +11,10 @@ When processing extracted-tier or auto-tier memory entries:
    - Distillation & Deduplication Check: Before promoting any candidate, cross-reference it with the existing guidelines/heuristics in the target file. If there is semantic overlap or the target already covers the core lesson, merge the evidence, increment the recurrence count, and distill the rule to keep the descriptions concise, active-voice, and distinct. Do not append separate duplicate entries.
 3. Promote when the candidate is durable, evidence-backed, and matches an instruction-tier file:
    - Heuristic with confirming evidence or a hard safety/data-loss rule -> append to `learned-heuristics.md`
-   - Pattern or boundary fact -> integrate into `project-knowledge-base.md` or `core-zero/project/architecture.md`
+   - Pattern or boundary fact -> integrate into `project-knowledge-base.md` or `corebase-specharness/project/architecture.md`
    - Normative rule with team agreement -> amend `core-policies.md` (CC-*)
    - Permission, trust, or sandbox rule -> amend `core-policies.md` `## Security Policy`
-   - Domain term that crystallized in the session -> append to `core-zero/project/glossary.md` or the matching domain pack
+   - Domain term that crystallized in the session -> append to `corebase-specharness/project/glossary.md` or the matching domain pack
    - Harness gap -> route to `harness-maintain` Improve Mode
    - Spec gap -> route back to `spec-requirements`
 4. Defer when the candidate is plausible but under-evidenced:
@@ -44,4 +44,4 @@ Anti-patterns:
 
 ## Mechanical Audit Fields
 
-Use `python3 core-zero/scripts/core/cli.py memory-audit --json` file counts and threshold warnings before promotion or distillation.
+Use `python3 corebase-specharness/scripts/core/cli.py memory-audit --json` file counts and threshold warnings before promotion or distillation. If any inspected file is at `warning-level` or `hard-cap`, run compaction before promoting more text: snapshot `.bak` and `.ids_before`, cut prose 30–50% to bullets, keep every `##` heading and every stable ID, then confirm `.ids_after` matches `.ids_before`. Do not promote a new `LH-*` or `CC-*` into a file already over the hard cap.

@@ -11,9 +11,9 @@ triggers: ['adr', 'decision', 'architecture decision']
 
 | | |
 |---|---|
-| **Reads** | Codebase context, `core-zero/rules/ponytail.md`, `core-zero/project/architecture.md`, `spec.md`, `plan.md` |
-| **Writes** | Optional: `core-zero/project/adr/`, `core-zero/memories/repo/adr-log.md` |
-| **Key CLI** | `python3 core-zero/scripts/core/cli.py adr-generate --title "<title>"`, `python3 core-zero/scripts/core/cli.py context-load --skill spec-adr` |
+| **Reads** | Codebase context, `corebase-specharness/rules/ponytail.md`, `corebase-specharness/project/architecture.md`, `spec.md`, `plan.md` |
+| **Writes** | Optional: `corebase-specharness/project/adr/`, `corebase-specharness/memories/repo/adr-log.md` |
+| **Key CLI** | `python3 corebase-specharness/scripts/core/cli.py adr-generate --title "<title>"`, `python3 corebase-specharness/scripts/core/cli.py context-load --skill spec-adr` |
 | **Entry** | Directly invokable peer skill; return to the caller after the bounded procedure |
 
 ## Overview
@@ -34,16 +34,16 @@ Can be invoked conditionally from `/spec-requirements`, `/spec-plan`, `/spec-tas
 
 | Mode | Trigger / Condition | Primary Purpose & Outputs |
 |---|---|---|
-| `adr-major` | High-impact architectural or technology choice | Creates full ADR in `core-zero/project/adr/` using `references/adr-template.md` |
-| `adr-lightweight` | Minor design choice or localized trade-off | Creates lightweight ADR using `references/adr-lightweight-template.md` |
+| `adr-major` | High-impact architectural or technology choice | Creates full ADR in `corebase-specharness/project/adr/` using `references/adr-template.md` |
+| `adr-lightweight` | Minor design choice or localized trade-off | Creates lightweight ADR using `references/adr-template.md` |
 | `adr-review` | Evaluating an existing ADR or checking for conflicts | Assesses current ADR status (`Proposed`, `Accepted`, `Deprecated`, `Superseded`) |
 
 ## I/O & Artifact Protocol
 
-- **Reads**: `core-zero/project/architecture.md`, `core-zero/rules/ponytail.md`, `artifacts/features/<slug>/spec.md`, `artifacts/features/<slug>/plan.md` (when present).
+- **Reads**: `corebase-specharness/project/architecture.md`, `corebase-specharness/rules/ponytail.md`, `artifacts/features/<slug>/spec.md`, `artifacts/features/<slug>/plan.md` (when present).
 - **Writes**:
-  - `core-zero/project/adr/[number]-[slug].md` (new ADR document)
-  - `core-zero/memories/repo/adr-log.md` (appended entry via Write Contract)
+  - `corebase-specharness/project/adr/[number]-[slug].md` (new ADR document)
+  - `corebase-specharness/memories/repo/adr-log.md` (appended entry via Write Contract)
 - **Session State**: Notes decision in active feature session notes `.corezero/sessions/<slug>/session.md`.
 
 ## Step-by-Step Execution Workflow
@@ -53,16 +53,16 @@ Can be invoked conditionally from `/spec-requirements`, `/spec-plan`, `/spec-tas
 
 2. **Comparative Evaluation**:
    - Research and compare at least two options across complexity, maintenance cost, performance, and team familiarity dimensions.
-   - Apply `core-zero/rules/ponytail.md` (Simplicity Ladder: native features > standard library > installed deps > custom code) and `skills/spec-plan/references/deep-modules.md`.
+   - Apply `corebase-specharness/rules/ponytail.md` (Simplicity Ladder: native features > standard library > installed deps > custom code) and `skills/spec-plan/references/deep-modules.md`.
    - Apply the deletion test and Design-it-Twice technique: compare interface depth, seam placement, blast radius, and test surface for both options.
    - Classify reversibility (`Easy | Moderate | Hard`). Prefer easy-to-reverse options when uncertainty remains.
 
 3. **Draft Decision Record**:
-   - Scaffold ADR: Run `python3 core-zero/scripts/core/cli.py adr-generate --title "<title>"` or create `core-zero/project/adr/[number]-[slug].md`.
-   - Populate problem statement, evaluated options with pros/cons, decision outcome, and long-term consequences using `references/adr-template.md` or `references/adr-lightweight-template.md`.
+   - Scaffold ADR: Run `python3 corebase-specharness/scripts/core/cli.py adr-generate --title "<title>"` or create `corebase-specharness/project/adr/[number]-[slug].md`.
+   - Populate problem statement, evaluated options with pros/cons, decision outcome, and long-term consequences using `references/adr-template.md` (full or lightweight template).
 
 4. **Append to ADR Log Ledger**:
-   - Update `core-zero/memories/repo/adr-log.md` by appending a new entry conforming to its `## Entry Template`.
+   - Update `corebase-specharness/memories/repo/adr-log.md` by appending a new entry conforming to its `## Entry Template`.
    - Record status as `Proposed` or `Accepted`. Link entry to `spec.md` or `plan.md`.
 
 5. **Handoff & Terminal Return**:
@@ -76,7 +76,7 @@ Can be invoked conditionally from `/spec-requirements`, `/spec-plan`, `/spec-tas
 
 ## Core Rules
 
-- **Write Authority**: `/spec-adr` is the sole skill authorized to append entries to `core-zero/memories/repo/adr-log.md`.
+- **Write Authority**: `/spec-adr` is the sole skill authorized to append entries to `corebase-specharness/memories/repo/adr-log.md`.
 - **Comparative Analysis**: Every ADR MUST evaluate at least two distinct options with depth, seam, blast radius, and reversibility.
 - **Immutability**: Once `Accepted`, past ADR log entries are immutable. Superseded decisions MUST create a new ADR.
 - **Design-it-Twice is not an ADR**: Interface comparison in `plan.md` does not replace this skill when the choice is hard to reverse.

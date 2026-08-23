@@ -34,4 +34,4 @@ Finding **facts** is the agent's job, not the user's.
 
 ## Inline Domain Terminology Capture
 
-When a term is resolved during grilling, capture it immediately into `core-zero/project/glossary.md` (or the relevant `core-zero/memories/domain/<name>/glossary.md`). Do not batch terminology updates until after the session. Create the file if it does not exist; use the existing format. `core-zero/project/glossary.md` is strictly a glossary — no spec, implementation, or design content belongs there.
+When a term is resolved during grilling, capture it immediately into `corebase-specharness/project/glossary.md` (or the relevant `corebase-specharness/memories/domain/<name>/glossary.md`). Do not batch terminology updates until after the session. Create the file if it does not exist; use the existing format. `corebase-specharness/project/glossary.md` is strictly a glossary — no spec, implementation, or design content belongs there.

@@ -5,7 +5,7 @@
 - For spec tasks: all ACs must be written, no HALT markers remaining.
 - For design tasks: architecture must be documented with ADR if contested, and module depth / seams must be declared.
 - For closeout verification: conduct Two-Axis Code Review (Standards Review + Spec Alignment Review) independently before deciding verdict.
-- Prefer `python3 core-zero/scripts/core/cli.py verify --feature <slug> --skill harness-verify` for closeout.
+- Prefer `python3 corebase-specharness/scripts/core/cli.py verify --feature <slug> --skill harness-verify` for closeout.
 - Bare `verify --feature <slug>` remains the coarse `--phase Verify` compatibility path.
 - `verify` runs mechanical gates through the embedded Python runtime.
 

@@ -11,9 +11,9 @@ triggers: ['requirement', 'spec', 'feature']
 
 | | |
 |---|---|
-| **Reads** | `core-zero/project/product-sense.md`, `core-zero/project/project-constraints.md`, optional `analysis.md` |
+| **Reads** | `corebase-specharness/project/product-sense.md`, `corebase-specharness/project/project-constraints.md`, optional `analysis.md` |
 | **Writes** | Required: `spec.md`. Optional: `proposal.md`, `requirements-review.md`, `status.md` |
-| **Key CLI** | `python3 core-zero/scripts/core/cli.py skill-enter --skill spec-requirements --feature <slug> --intent "<request>"`, `python3 core-zero/scripts/core/cli.py skill-exit --skill spec-requirements --feature <slug> --handoff spec-plan` |
+| **Key CLI** | `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-requirements --feature <slug> --intent "<request>"`, `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill spec-requirements --feature <slug> --handoff spec-plan` |
 | **Entry** | Directly invokable peer skill; handoff may suggest `/spec-plan` |
 
 ## Overview
@@ -40,7 +40,7 @@ Defines functional requirements (`REQ-*`), testable acceptance criteria (`AC-*`)
 
 ## I/O & Artifact Protocol
 
-- **Reads**: `artifacts/features/<slug>/analysis.md` (if present), `artifacts/features/<slug>/status.md`, `core-zero/project/product-sense.md`, `core-zero/project/project-constraints.md`, `core-zero/memories/repo/adr-log.md`.
+- **Reads**: `artifacts/features/<slug>/analysis.md` (if present), `artifacts/features/<slug>/status.md`, `corebase-specharness/project/product-sense.md`, `corebase-specharness/project/project-constraints.md`, `corebase-specharness/memories/repo/adr-log.md`.
 - **Writes**:
   - `artifacts/features/<slug>/spec.md` (`REQ-*`, `AC-*`, `SC-*`)
   - `artifacts/features/<slug>/status.md` via `skill-enter` (`Specifying`) and `skill-exit` (`SpecApproved`)
@@ -51,20 +51,20 @@ Defines functional requirements (`REQ-*`), testable acceptance criteria (`AC-*`)
 ## Step-by-Step Execution Workflow
 
 1. **Pre-flight**:
-   - Run `python3 core-zero/scripts/core/cli.py skill-enter --skill spec-requirements --feature <slug> --intent "<request>"`.
+   - Run `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-requirements --feature <slug> --intent "<request>"`.
    - Do not hand-edit `- Phase:`. The envelope creates `status.md` if needed and sets `Specifying`.
 
 2. **Intake & Context Alignment**:
    - Classify input type (`new_spec`, `spec_slice`, `change_request`, `new_initiative`, `maintenance`, `harness_improvement`) in `status.md` per `references/intake.md`.
-   - Supply the feature request as `--intent` to context loading. CoreZero discovers nested domain packs by matching that intent against `triggers:` in `core-zero/memories/domain/<name>/glossary.md`.
+   - Supply the feature request as `--intent` to context loading. CoreBase SpecHarness discovers nested domain packs by matching that intent against `triggers:` in `corebase-specharness/memories/domain/<name>/glossary.md`.
    - Read research findings in `analysis.md` if available.
-   - Check `core-zero/memories/repo/adr-log.md`. If proposed spec contradicts a locked ADR, write `[:HALT ADR CONFLICT: ADR-NNN]` and block handoff.
+   - Check `corebase-specharness/memories/repo/adr-log.md`. If proposed spec contradicts a locked ADR, write `[:HALT ADR CONFLICT: ADR-NNN]` and block handoff.
 
 3. **Clarification Phase (Frontier Grilling)**:
    - Calibrate user domain familiarity (Novice / Familiar / Expert) and urgency (Relaxed / Normal / Urgent).
    - Execute wave-based grilling per `references/grilling-waves.md` using the **frontier-round protocol**. Ask all unblocked questions together in numbered batches with recommended defaults.
    - Separate facts from decisions: discover repository facts through codebase inspection or subagents; ask the user only for domain, trade-off, and scope decisions.
-   - Capture resolved domain terms into `core-zero/project/glossary.md` (or domain pack) immediately as they crystallize.
+   - Capture resolved domain terms into `corebase-specharness/project/glossary.md` (or domain pack) immediately as they crystallize.
    - If answers remain contradictory after 2 rounds, write `[:HALT UNRESOLVED]` and escalate.
 
 4. **Profile Classification & Proposal**:
@@ -81,9 +81,9 @@ Defines functional requirements (`REQ-*`), testable acceptance criteria (`AC-*`)
 6. **Completeness Review & Phase Gate Handoff**:
    - Verify zero HALT tags (`[:HALT NEEDS CLARIFICATION]`, `[:HALT UNRESOLVED]`, `[:HALT ADR CONFLICT]`) remain.
    - Conduct readiness review per `references/requirements-review-template.md`. Create `requirements-review.md` only if gaps are found.
-   - Run `python3 core-zero/scripts/core/cli.py phase-check --feature <slug> --skill spec-requirements`.
-   - Mark `Spec approved` `[x]`, then run `python3 core-zero/scripts/core/cli.py skill-exit --skill spec-requirements --feature <slug> --handoff spec-plan`.
-   - If acceptance criteria define a public API, CLI, or schema, an adopter may use a separately installed external documentation skill; CoreZero does not route or require it.
+   - Run `python3 corebase-specharness/scripts/core/cli.py phase-check --feature <slug> --skill spec-requirements`.
+   - Mark `Spec approved` `[x]`, then run `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill spec-requirements --feature <slug> --handoff spec-plan`.
+   - If acceptance criteria define a public API, CLI, or schema, an adopter may use a separately installed external documentation skill; CoreBase SpecHarness does not route or require it.
 
 ## Anti-Patterns & Red Flags
 

@@ -11,9 +11,9 @@ triggers: ['plan', 'design', 'architecture', 'technical design']
 
 | | |
 |---|---|
-| **Reads** | `core-zero/project/architecture.md`, `core-zero/rules/ponytail.md`, `core-zero/rules/code-design.md`, `spec.md`, `status.md` |
+| **Reads** | `corebase-specharness/project/architecture.md`, `corebase-specharness/rules/ponytail.md`, `corebase-specharness/rules/code-design.md`, `spec.md`, `status.md` |
 | **Writes** | Required: `plan.md`. Optional: `status.md` |
-| **Key CLI** | `python3 core-zero/scripts/core/cli.py skill-enter --skill spec-plan --feature <slug> --intent "<request>"`, `python3 core-zero/scripts/core/cli.py skill-exit --skill spec-plan --feature <slug> --handoff spec-tasks` |
+| **Key CLI** | `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-plan --feature <slug> --intent "<request>"`, `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill spec-plan --feature <slug> --handoff spec-tasks` |
 | **Entry** | Directly invokable peer skill; handoff may suggest `/spec-tasks` |
 
 ## Overview
@@ -40,7 +40,7 @@ Defines module maps, component boundaries, dependency directions, complexity tra
 
 ## I/O & Artifact Protocol
 
-- **Reads**: `artifacts/features/<slug>/spec.md`, `artifacts/features/<slug>/status.md`, `core-zero/project/architecture.md`, `core-zero/rules/code-design.md`, `core-zero/rules/ponytail.md`.
+- **Reads**: `artifacts/features/<slug>/spec.md`, `artifacts/features/<slug>/status.md`, `corebase-specharness/project/architecture.md`, `corebase-specharness/rules/code-design.md`, `corebase-specharness/rules/ponytail.md`.
 - **Writes**:
   - `artifacts/features/<slug>/plan.md`
   - `artifacts/features/<slug>/status.md` via `skill-enter` / `skill-exit` (`Planning`)
@@ -49,12 +49,12 @@ Defines module maps, component boundaries, dependency directions, complexity tra
 ## Step-by-Step Execution Workflow
 
 1. **Pre-flight**:
-   - Run `python3 core-zero/scripts/core/cli.py skill-enter --skill spec-plan --feature <slug> --intent "<request>"`.
+   - Run `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-plan --feature <slug> --intent "<request>"`.
    - Do not hand-edit `- Phase:`.
 
 2. **Technical Solution Authoring**:
    - Author `artifacts/features/<slug>/plan.md` using `references/plan-template.md`.
-   - Apply `core-zero/rules/code-design.md`, `core-zero/rules/ponytail.md`, and `references/deep-modules.md`.
+   - Apply `corebase-specharness/rules/code-design.md`, `corebase-specharness/rules/ponytail.md`, and `references/deep-modules.md`.
    - Tailor design depth based on delivery profile (`Simple`, `Moderate`, or `Complex`).
 
 3. **Module Map & Seam Definition**:
@@ -68,8 +68,8 @@ Defines module maps, component boundaries, dependency directions, complexity tra
    - *Decision Gate*: If two viable technical options have material trade-offs, invoke `/spec-adr` — do not choose silently. Design-it-twice does not replace an ADR.
 
 5. **External Specialist Alignment & Handoff**:
-   - Optional design analysis, diagrams, and technical documentation may be created with separately installed skills described in `EXTERNAL_SKILLS.md`. They are outside CoreZero routing and do not change lifecycle ownership.
-   - Run `python3 core-zero/scripts/core/cli.py skill-exit --skill spec-plan --feature <slug> --handoff spec-tasks`.
+   - Optional design analysis, diagrams, and technical documentation may be created with separately installed skills described in `EXTERNAL_SKILLS.md`. They are outside CoreBase SpecHarness routing and do not change lifecycle ownership.
+   - Run `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill spec-plan --feature <slug> --handoff spec-tasks`.
    - Do NOT pass `--phase PlanApproved`; that state is owned by `/spec-tasks` after the task graph is created.
 
 ## Anti-Patterns & Red Flags

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-CoreZero is a skills-first spec-driven delivery kit. The harness and
+CoreBase SpecHarness is a skills-first spec-driven delivery kit. The harness and
 context compiler are layers inside that kit. Install is not a starter
 template.
 
@@ -90,9 +90,9 @@ If two attempts to correct the same issue fail, stop. Summarize the evidence, at
 
 ## 8. Optional External Engineering Skills
 
-CoreZero ships 11 lifecycle, harness, memory, ADR, and testing skills. Repository documentation, technical documentation, diagrams, architecture surveys, and design-pattern workflows can be installed separately; see `EXTERNAL_SKILLS.md` for the external catalog and selected-install commands.
+CoreBase SpecHarness ships 11 lifecycle, harness, memory, ADR, and testing skills. Repository documentation, technical documentation, diagrams, architecture surveys, and design-pattern workflows can be installed separately; see `EXTERNAL_SKILLS.md` for the external catalog and selected-install commands.
 
-External skills are optional. Do not treat them as CoreZero routes, pass their names to `python3 core-zero/scripts/core/cli.py context-load`, or make them a lifecycle gate unless the project explicitly adds an artifact requirement.
+External skills are optional. Do not treat them as CoreBase SpecHarness routes, pass their names to `python3 corebase-specharness/scripts/core/cli.py context-load`, or make them a lifecycle gate unless the project explicitly adds an artifact requirement.
 
 ## 9. Optional Runtime Capabilities
 

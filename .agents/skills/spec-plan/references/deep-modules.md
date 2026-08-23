@@ -1,6 +1,6 @@
 # Deep Modules
 
-Shared vocabulary for designing modules that hide complexity behind a small public interface. Use these terms in `plan.md` module maps and in architectural surveys. Do not replace CoreZero architecture language (`boundary`, `component`) in `architecture.md`; treat **seam** as the testable interface location.
+Shared vocabulary for designing modules that hide complexity behind a small public interface. Use these terms in `plan.md` module maps and in architectural surveys. Do not replace CoreBase SpecHarness architecture language (`boundary`, `component`) in `architecture.md`; treat **seam** as the testable interface location.
 
 ## Glossary
 

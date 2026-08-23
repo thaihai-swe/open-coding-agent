@@ -11,9 +11,9 @@ triggers: ['verify', 'gate', 'test', 'validation']
 
 | | |
 |---|---|
-| **Reads** | `core-zero/rules/security.md` (§Verification), `core-zero/project/harness-config.yaml`, `spec.md`, `tasks.md`, `plan.md` |
+| **Reads** | `corebase-specharness/rules/security.md` (§Verification), `corebase-specharness/project/harness-config.yaml`, `spec.md`, `tasks.md`, `plan.md` |
 | **Writes** | Required: `review.md`. Optional: `status.md` |
-| **Key CLI** | `python3 core-zero/scripts/core/cli.py skill-enter --skill harness-verify --feature <slug>`, `python3 core-zero/scripts/core/cli.py verify --feature <slug> --skill harness-verify`, `python3 core-zero/scripts/core/cli.py skill-exit --skill harness-verify --feature <slug> --handoff context-memory` |
+| **Key CLI** | `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill harness-verify --feature <slug>`, `python3 corebase-specharness/scripts/core/cli.py verify --feature <slug> --skill harness-verify`, `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill harness-verify --feature <slug> --handoff context-memory` |
 | **Suggested Handoff** | `/context-memory` (after `Done`; Post-Ship Sync heading is required first) |
 
 ## Overview
@@ -40,7 +40,7 @@ This skill is the **sole authority** for validating AC completion and transition
 
 ## I/O & Artifact Protocol
 
-- **Reads**: `artifacts/features/<slug>/spec.md`, `artifacts/features/<slug>/plan.md`, `artifacts/features/<slug>/tasks.md`, `core-zero/project/harness-config.yaml`, `core-zero/rules/security.md`.
+- **Reads**: `artifacts/features/<slug>/spec.md`, `artifacts/features/<slug>/plan.md`, `artifacts/features/<slug>/tasks.md`, `corebase-specharness/project/harness-config.yaml`, `corebase-specharness/rules/security.md`.
 - **Writes**:
   - `artifacts/features/<slug>/review.md` (verdict, gate outcomes, traceability tables)
   - `artifacts/features/<slug>/status.md` via `skill-enter` (`Verifying`) and `skill-exit` (`Done` or `--phase ChangesRequested`)
@@ -49,12 +49,12 @@ This skill is the **sole authority** for validating AC completion and transition
 ## Step-by-Step Execution Workflow
 
 1. **Pre-flight**:
-   - Run `python3 core-zero/scripts/core/cli.py skill-enter --skill harness-verify --feature <slug> --intent "<request>"`.
-   - Run `python3 core-zero/scripts/core/cli.py phase-check --feature <slug> --skill harness-verify`.
+   - Run `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill harness-verify --feature <slug> --intent "<request>"`.
+   - Run `python3 corebase-specharness/scripts/core/cli.py phase-check --feature <slug> --skill harness-verify`.
 
 2. **Mechanical Gate Audit**:
-   - Run `python3 core-zero/scripts/core/cli.py verify --feature <slug> --skill harness-verify` to mechanically execute all confirmed project gates.
-   - Run `python3 core-zero/scripts/core/cli.py artifact-check --feature <slug> --skill harness-verify --trace` to verify artifact structure and AC traceability.
+   - Run `python3 corebase-specharness/scripts/core/cli.py verify --feature <slug> --skill harness-verify` to mechanically execute all confirmed project gates.
+   - Run `python3 corebase-specharness/scripts/core/cli.py artifact-check --feature <slug> --skill harness-verify --trace` to verify artifact structure and AC traceability.
 
 3. **Alignment, Two-Axis Review & Conformance Audit**:
    - *Traceability Check*: Map every `AC-*` in `spec.md` to a completed `T-NNN` task in `tasks.md` with fresh proof evidence. Zero tolerance — unmapped AC = `Fail`.
@@ -67,23 +67,23 @@ This skill is the **sole authority** for validating AC completion and transition
 
 4. **Security & Review Provider Audits**:
    - Audit against `core-policies.md` `## Security Policy`.
-   - Record the review-provider outcome from `verify` in `review.md` `## Provider Review`. The kit default is `providers.review.active: none` and `mode: optional`: no `ocr` binary is required, and a missing provider is `deferred`, not a Fail. Two-axis review above is the required review. Enable `open-code-review` in `core-zero/project/tool-providers.md` only after local `ocr` setup. Set `mode: required` only when this project must fail closeout without a successful `ocr review`.
+   - Record the review-provider outcome from `verify` in `review.md` `## Provider Review`. The kit default is `providers.review.active: none` and `mode: optional`: no `ocr` binary is required, and a missing provider is `deferred`, not a Fail. Two-axis review above is the required review. Enable `open-code-review` in `corebase-specharness/project/tool-providers.md` only after local `ocr` setup. Set `mode: required` only when this project must fail closeout without a successful `ocr review`.
 
 5. **Memory Sync Trigger & Final Closeout**:
    - When all verification evidence passes, record `Verification passed; sync pending`.
    - Write `## Post-Ship Sync` in `session-extracts.md` (use `no candidates` when none exist). `skill-exit` to `Done` fails without that heading and without `review.md`.
    - Invoke `/context-memory` after `Done` to promote candidate lessons. If the heading is skipped, insert `[:HALT SYNC REQUIRED]` and do not exit to `Done`.
    - Write verdict (`Pass`, `Pass with Follow-Up Debt`, or `Fail`) in `artifacts/features/<slug>/review.md` using `references/review-template.md`.
-   - On a passing verdict, confirm `verify` reports `details.verified: true` and records `core-zero/generated/verification-runs.json`; then run `python3 core-zero/scripts/core/cli.py skill-exit --skill harness-verify --feature <slug> --handoff context-memory`.
+   - On a passing verdict, confirm `verify` reports `details.verified: true` and records `corebase-specharness/generated/verification-runs.json`; then run `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill harness-verify --feature <slug> --handoff context-memory`.
     - If no confirmed gates exist or verification is not true, do not close normally. Use `ChangesRequested`, configure gates, or record a deliberate `--verification-override --override-reason "..."` exception.
-   - On a failing verdict run `python3 core-zero/scripts/core/cli.py skill-exit --skill harness-verify --feature <slug> --phase ChangesRequested --handoff spec-implement`.
+   - On a failing verdict run `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill harness-verify --feature <slug> --phase ChangesRequested --handoff spec-implement`.
 
 ## Anti-Patterns & Red Flags
 
 - **Premature Done**: Setting phase to `Done` without running mechanical verification or post-ship memory sync.
 - **Unmapped ACs**: Passing verification when an `AC-*` item has zero task proof evidence.
 - **Stale Verification**: Accepting test logs from prior sessions instead of fresh terminal execution.
-- **Ignoring Gate Failures**: Glossing over broken build/test output from `python3 core-zero/scripts/core/cli.py verify`.
+- **Ignoring Gate Failures**: Glossing over broken build/test output from `python3 corebase-specharness/scripts/core/cli.py verify`.
 
 ## Core Rules
 

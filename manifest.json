@@ -1,9 +1,9 @@
 {
-  "name": "corezero",
+  "name": "corebase-specharness",
   "version": "1.0.0",
   "requires_python": ">=3.10",
-  "description": "Skills-first spec-driven delivery kit. Harness and context compiler are layers inside it; install is copy-with-seed, not a starter template.",
-  "homepage": "https://github.com/thaihai-swe/CoreZero",
+  "description": "Skills-first spec-driven delivery kit for AI coding agents. Harness and context compiler are layers inside it; install is copy-with-seed, not a starter template.",
+  "homepage": "https://github.com/thaihai-swe/CoreBase-SpecHarness",
   "files": {
     "overwrite": [
       "manifest.json",
@@ -25,32 +25,30 @@
       "skills/starter-init/**",
       "references/context-routes.yaml",
       "references/tool-providers-registry.json",
-      "core-zero/scripts/core/**",
-      "core-zero/scripts/install.sh",
-      "core-zero/rules/**",
-      "core-zero/CONTEXT_AND_MEMORY.md",
-      "core-zero/project/state-machine.yaml",
-      "core-zero/scripts/validate-skill-consistency.py",
-      "core-zero/scripts/validate-static-audit.py"
+      "corebase-specharness/scripts/core/**",
+      "corebase-specharness/scripts/install.sh",
+      "corebase-specharness/rules/**",
+      "corebase-specharness/CONTEXT_AND_MEMORY.md",
+      "corebase-specharness/project/state-machine.yaml",
+      "corebase-specharness/scripts/validate-static-audit.py"
     ],
     "copyIfMissing": [
-      "core-zero/MASTER_INDEX.md",
-      "core-zero/memories/repo/core-policies.md",
-      "core-zero/memories/repo/harness-config.md",
-      "core-zero/memories/repo/learned-heuristics.md",
-      "core-zero/memories/repo/project-knowledge-base.md",
-      "core-zero/memories/repo/adr-log.md",
-      "core-zero/project/architecture.md",
-      "core-zero/project/tech-stack.md",
-      "core-zero/project/product-sense.md",
-      "core-zero/project/project-constraints.md",
-      "core-zero/project/glossary.md",
-      "core-zero/project/harness-config.yaml",
-      "core-zero/project/tool-providers.md",
-      "core-zero/project/providers/**",
+      "corebase-specharness/MASTER_INDEX.md",
+      "corebase-specharness/memories/repo/core-policies.md",
+      "corebase-specharness/memories/repo/learned-heuristics.md",
+      "corebase-specharness/memories/repo/project-knowledge-base.md",
+      "corebase-specharness/memories/repo/adr-log.md",
+      "corebase-specharness/project/architecture.md",
+      "corebase-specharness/project/tech-stack.md",
+      "corebase-specharness/project/product-sense.md",
+      "corebase-specharness/project/project-constraints.md",
+      "corebase-specharness/project/glossary.md",
+      "corebase-specharness/project/harness-config.yaml",
+      "corebase-specharness/project/tool-providers.md",
+      "corebase-specharness/project/providers/**",
       "artifacts/features/README.md",
-      "core-zero/memories/domain/**",
-      "core-zero/memories/archive/deprecated-heuristics.md"
+      "corebase-specharness/memories/domain/**",
+      "corebase-specharness/memories/archive/deprecated-heuristics.md"
     ]
   }
 }

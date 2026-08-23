@@ -10,8 +10,8 @@ Each feature gets a subdirectory under `artifacts/features/<slug>/`. Below are a
 | `spec.md` | Durable | `artifacts/features/<slug>/` | spec-requirements | Spec | `spec-requirements/references/spec-template.md` |
 | `plan.md` | Durable | `artifacts/features/<slug>/` | spec-plan | Plan | `spec-plan/references/plan-template.md` |
 | `tasks.md` | Durable | `artifacts/features/<slug>/` | spec-tasks | Plan | `spec-tasks/references/tasks-template.md` |
-| `session.md` | Ephemeral | `.corezero/sessions/<slug>/` | spec-implement / `python3 core-zero/scripts/core/cli.py session-*` | Implement | `scripts/core/cli.py` |
-| `session-extracts.md` | Semi-durable | `artifacts/features/<slug>/` | spec-implement / `python3 core-zero/scripts/core/cli.py session-end` | Implement | `scripts/core/cli.py` |
+| `session.md` | Ephemeral | `.corezero/sessions/<slug>/` | spec-implement / `python3 corebase-specharness/scripts/core/cli.py session-*` | Implement | `scripts/core/cli.py` |
+| `session-extracts.md` | Semi-durable | `artifacts/features/<slug>/` | spec-implement / `python3 corebase-specharness/scripts/core/cli.py session-end` | Implement | `scripts/core/cli.py` |
 | `requirements-review.md` | Semi-durable | `artifacts/features/<slug>/` | spec-requirements | Spec | `spec-requirements/references/requirements-review-template.md` |
 | `testing-scenarios.md` | Durable | `artifacts/features/<slug>/` | spec-testing-scenario (optional) | Verify | `spec-testing-scenario/references/testing-scenarios-template.md` |
 | `review.md` | Durable | `artifacts/features/<slug>/` | harness-verify | Verify | `harness-verify/references/review-template.md` |
@@ -75,6 +75,6 @@ The table below shows which artifacts are mandatory per profile.
 
 ## Lifecycle
 
-- Ephemeral session state (`session.md`) is managed by `python3 core-zero/scripts/core/cli.py session-*` commands.
+- Ephemeral session state (`session.md`) is managed by `python3 corebase-specharness/scripts/core/cli.py session-*` commands.
 - Durable files are never auto-deleted. They remain as historical record.
 - Semi-durable files (`session-extracts.md`, `requirements-review.md`) are retained until manually cleaned or triaged.

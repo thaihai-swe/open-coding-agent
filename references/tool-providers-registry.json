@@ -4,7 +4,7 @@
       "id": "open-code-review",
       "category": "review",
       "executable": "ocr",
-      "guide": "core-zero/project/providers/open-code-review.md",
+      "guide": "corebase-specharness/project/providers/open-code-review.md",
       "actions": {
         "run": ["ocr", "review"]
       }
@@ -13,7 +13,7 @@
       "id": "gitnexus",
       "category": "code-intelligence",
       "executable": "gitnexus",
-      "guide": "core-zero/project/providers/gitnexus.md",
+      "guide": "corebase-specharness/project/providers/gitnexus.md",
       "actions": {
         "refresh": ["gitnexus", "analyze"]
       }
@@ -22,7 +22,7 @@
       "id": "codebase-memory-mcp",
       "category": "code-intelligence",
       "executable": "codebase-memory-mcp",
-      "guide": "core-zero/project/providers/codebase-memory-mcp.md",
+      "guide": "corebase-specharness/project/providers/codebase-memory-mcp.md",
       "actions": {
         "refresh": ["codebase-memory-mcp", "index", "."]
       }

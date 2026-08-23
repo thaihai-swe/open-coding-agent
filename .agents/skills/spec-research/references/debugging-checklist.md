@@ -39,3 +39,40 @@ If no loop can be built, stop. Write `[:HALT INCONCLUSIVE]` and list what was tr
 
 - [ ] All `[DEBUG-<id>]` instrumentation removed or listed for implement to remove.
 - [ ] Throwaway harness deleted or marked throwaway.
+
+## Root Cause Record
+
+Write this block into `analysis.md` once a cause is confirmed:
+
+- Symptom:
+- Red-capable command (invocation + redacted output):
+- Minimised reproduction:
+- First failing boundary:
+- Ranked hypotheses (If X, then changing Y / Z):
+- Evidence that confirmed or falsified each:
+- Confirmed cause:
+- Contributing factors:
+- Fix boundary:
+- Regression proof / seam:
+- Debug tag prefix used (`[DEBUG-<id>]`):
+- Remaining uncertainty:
+
+## Prototype Technique
+
+Use a prototype only to answer a named uncertainty. Do not promote a prototype into production code.
+
+### Experiment
+
+- Question:
+- Smallest experiment / throwaway command:
+- Inputs / assumptions:
+- Success signal (must be red-capable or observable):
+- Result / evidence:
+- Decision enabled:
+- Delete or preserve prototype:
+
+### Safety
+
+- Keep the prototype isolated from production modules.
+- Tag temporary logs `[DEBUG-<id>]` and remove them before research exit.
+- If the experiment cannot be made deterministic, write `[:HALT INCONCLUSIVE]`.

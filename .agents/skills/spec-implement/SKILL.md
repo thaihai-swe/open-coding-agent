@@ -11,16 +11,16 @@ triggers: ['implement', 'code', 'build', 'deliver']
 
 | | |
 |---|---|
-| **Reads** | `core-zero/rules/security.md`, `core-zero/rules/code-design.md`, `spec.md`, `plan.md`, `tasks.md` |
+| **Reads** | `corebase-specharness/rules/security.md`, `corebase-specharness/rules/code-design.md`, `spec.md`, `plan.md`, `tasks.md` |
 | **Writes** | Optional: project source, `tasks.md`, `status.md`, `session-extracts.md`. Session: `.corezero/sessions/<slug>/session.md` |
-| **Key CLI** | `python3 core-zero/scripts/core/cli.py skill-enter --skill spec-implement --feature <slug>`, `python3 core-zero/scripts/core/cli.py task-start --feature <slug> --task <T-NNN>`, `python3 core-zero/scripts/core/cli.py skill-exit --skill spec-implement --feature <slug> --handoff harness-verify` |
+| **Key CLI** | `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-implement --feature <slug>`, `python3 corebase-specharness/scripts/core/cli.py task-start --feature <slug> --task <T-NNN>`, `python3 corebase-specharness/scripts/core/cli.py context-load --skill spec-implement --feature <slug> --task <T-NNN>`, `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill spec-implement --feature <slug> --handoff harness-verify` |
 | **Entry** | Directly invokable peer skill; handoff may suggest `/harness-verify` |
 
 ## Overview
 
 Performs the coding work by executing task items in `artifacts/features/<slug>/tasks.md` one at a time. It answers: can I complete the selected task and prove it without inventing new scope?
 
-Enforces task locking (`python3 core-zero/scripts/core/cli.py task-start`), pre-flight baseline checks, TDD red-green loop at pre-agreed public seams, mechanical verification (`python3 core-zero/scripts/core/cli.py verify`), and evidence-backed completion (`python3 core-zero/scripts/core/cli.py task-done`).
+Enforces task locking (`python3 corebase-specharness/scripts/core/cli.py task-start`), pre-flight baseline checks, TDD red-green loop at pre-agreed public seams, mechanical verification (`python3 corebase-specharness/scripts/core/cli.py verify`), and evidence-backed completion (`python3 corebase-specharness/scripts/core/cli.py task-done`).
 
 ## When to Use & Invocation Triggers
 
@@ -39,7 +39,7 @@ Enforces task locking (`python3 core-zero/scripts/core/cli.py task-start`), pre-
 
 ## I/O & Artifact Protocol
 
-- **Reads**: `artifacts/features/<slug>/spec.md`, `artifacts/features/<slug>/plan.md`, `artifacts/features/<slug>/tasks.md`, `core-zero/rules/security.md`, `core-zero/rules/code-design.md`, `core-zero/rules/ponytail.md`.
+- **Reads**: `artifacts/features/<slug>/spec.md`, `artifacts/features/<slug>/plan.md`, `artifacts/features/<slug>/tasks.md`, `corebase-specharness/rules/security.md`, `corebase-specharness/rules/code-design.md`, `corebase-specharness/rules/ponytail.md`.
 - **Writes**:
   - Project source code and test files
   - `artifacts/features/<slug>/status.md` via `skill-enter` / `skill-exit` (`Implementing`)
@@ -50,13 +50,15 @@ Enforces task locking (`python3 core-zero/scripts/core/cli.py task-start`), pre-
 ## Step-by-Step Execution Workflow
 
 1. **Pre-flight**:
-   - Run `python3 core-zero/scripts/core/cli.py skill-enter --skill spec-implement --feature <slug> --intent "<request>"`.
-   - Run `python3 core-zero/scripts/core/cli.py phase-check --feature <slug> --skill spec-implement`.
+   - Run `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-implement --feature <slug> --intent "<request>"`.
+   - Run `python3 corebase-specharness/scripts/core/cli.py phase-check --feature <slug> --skill spec-implement`.
    - *Spec-Staleness Check*: If `spec.md` modification date is newer than `plan.md` approval date, stamp `[:HALT STALE — spec amended after plan approved]` on plan/tasks and route to `/spec-plan`.
 
 2. **Task Selection & Locking**:
-   - Run `python3 core-zero/scripts/core/cli.py task-check --feature <slug>` to select the next ready unblocked task (`T-NNN`).
-   - Lock task: Run `python3 core-zero/scripts/core/cli.py task-start --feature <slug> --task <T-NNN>`. (Never edit checkboxes by hand).
+   - Run `python3 corebase-specharness/scripts/core/cli.py task-check --feature <slug>` to select the next ready unblocked task (`T-NNN`).
+   - Lock task: Run `python3 corebase-specharness/scripts/core/cli.py task-start --feature <slug> --task <T-NNN>`. (Never edit checkboxes by hand).
+   - Reload a task-scoped pack before editing: `python3 corebase-specharness/scripts/core/cli.py context-load --skill spec-implement --feature <slug> --task <T-NNN> --intent "<request>"`. Do not pass `--full`. The compiler omits full `tasks.md` and injects only the active task plus its direct dependencies.
+   - If `task-check` finds no ready `T-NNN`, halt. Do not start coding against the full task list.
 
 3. **Pre-Flight Baseline & TDD Implementation**:
    - Run the task's validation/proving command once in terminal before editing to establish a baseline.
@@ -70,13 +72,13 @@ Enforces task locking (`python3 core-zero/scripts/core/cli.py task-start`), pre-
 4. **Semantic Review & Mechanical Validation**:
    - Verify semantic intent (LLM-as-Judge check on diff).
    - Re-run local task proof command.
-   - Run `python3 core-zero/scripts/core/cli.py verify --feature <slug> --skill spec-implement` for mechanical gate validation.
+   - Run `python3 corebase-specharness/scripts/core/cli.py verify --feature <slug> --skill spec-implement` for mechanical gate validation.
 
 5. **Logging, Lesson Extraction & Task Close**:
-   - Record validation proof: Run `python3 core-zero/scripts/core/cli.py task-done --feature <slug> --task <T-NNN> --evidence "<fresh proof summary>"`.
-   - (If blocked): Run `python3 core-zero/scripts/core/cli.py task-block --feature <slug> --task <T-NNN> --note "<reason>"`.
+   - Record validation proof: Run `python3 corebase-specharness/scripts/core/cli.py task-done --feature <slug> --task <T-NNN> --evidence "<fresh proof summary>"`.
+   - (If blocked): Run `python3 corebase-specharness/scripts/core/cli.py task-block --feature <slug> --task <T-NNN> --note "<reason>"`.
    - Record candidate lessons: Append non-trivial design decisions as `[CANDIDATE]` entries to `artifacts/features/<slug>/session-extracts.md`.
-   - If tasks remain, loop back to Step 2. When all tasks complete, run `python3 core-zero/scripts/core/cli.py skill-exit --skill spec-implement --feature <slug> --handoff harness-verify`.
+   - If tasks remain, loop back to Step 2 and reload `context-load` with the next `--task`. Do not re-run `skill-enter`. When all tasks complete, run `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill spec-implement --feature <slug> --handoff harness-verify`.
 
 ## Anti-Patterns & Red Flags
 
@@ -88,6 +90,7 @@ Enforces task locking (`python3 core-zero/scripts/core/cli.py task-start`), pre-
 ## Core Rules
 
 - **Strict Task Scoping**: Every edit MUST be scoped to a locked `T-NNN` task.
+- **Task-Scoped Context**: After `task-start`, coding turns MUST use `context-load --task T-NNN` so the full `tasks.md` is omitted.
 - **Mandatory Task Proof**: `task-done` REQUIRES non-empty `--evidence`.
 - **Ponytail Simplicity**: Maintain lazy senior dev mindset — use native features before adding dependencies.
-- **Context Eviction**: Summarize raw terminal gate logs and evict them from context.
+- **Context Eviction**: Summarize raw terminal gate logs and evict them from context. Do not pass `--full` unless the pack is known stale.

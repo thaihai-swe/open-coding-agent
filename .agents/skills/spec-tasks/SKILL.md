@@ -11,9 +11,9 @@ triggers: ['task', 'breakdown', 'estimate', 'milestone']
 
 | | |
 |---|---|
-| **Reads** | `core-zero/rules/code-design.md`, `spec.md`, `plan.md`, `status.md` |
+| **Reads** | `corebase-specharness/rules/code-design.md`, `spec.md`, `plan.md`, `status.md` |
 | **Writes** | Required: `tasks.md`. Optional: `status.md` |
-| **Key CLI** | `python3 core-zero/scripts/core/cli.py skill-enter --skill spec-tasks --feature <slug>`, `python3 core-zero/scripts/core/cli.py task-check --feature <slug>`, `python3 core-zero/scripts/core/cli.py skill-exit --skill spec-tasks --feature <slug> --handoff spec-implement` |
+| **Key CLI** | `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-tasks --feature <slug>`, `python3 corebase-specharness/scripts/core/cli.py task-check --feature <slug>`, `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill spec-tasks --feature <slug> --handoff spec-implement` |
 | **Entry** | Directly invokable peer skill; handoff may suggest `/spec-implement` |
 
 ## Overview
@@ -41,7 +41,7 @@ Each task is a **tracer bullet**: a narrow but complete path that is demoable or
 
 ## I/O & Artifact Protocol
 
-- **Reads**: `artifacts/features/<slug>/spec.md`, `artifacts/features/<slug>/plan.md`, `artifacts/features/<slug>/status.md`, `core-zero/rules/code-design.md`, `core-zero/rules/ponytail.md`.
+- **Reads**: `artifacts/features/<slug>/spec.md`, `artifacts/features/<slug>/plan.md`, `artifacts/features/<slug>/status.md`, `corebase-specharness/rules/code-design.md`, `corebase-specharness/rules/ponytail.md`.
 - **Writes**:
   - `artifacts/features/<slug>/tasks.md` (`T-NNN`, `Covers: AC-*`, `Depends on: T-NNN`)
   - `artifacts/features/<slug>/status.md` via `skill-enter` (`TaskPlanning`) and `skill-exit` (`PlanApproved`)
@@ -50,7 +50,7 @@ Each task is a **tracer bullet**: a narrow but complete path that is demoable or
 ## Step-by-Step Execution Workflow
 
 1. **Pre-flight**:
-   - Run `python3 core-zero/scripts/core/cli.py skill-enter --skill spec-tasks --feature <slug> --intent "<request>"`.
+   - Run `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-tasks --feature <slug> --intent "<request>"`.
    - Confirm `plan.md` exists. Do not hand-edit `- Phase:`.
 
 2. **User Story Decomposition & Task Breakdown**:
@@ -72,14 +72,14 @@ Each task is a **tracer bullet**: a narrow but complete path that is demoable or
    - Check granularity: does any task cover more than one vertical slice? Are blocking edges strictly necessary?
 
 4. **Task Graph Validation**:
-   - Run `python3 core-zero/scripts/core/cli.py task-check --feature <slug>` to verify zero dependency cycles or broken IDs.
-   - Run `python3 core-zero/scripts/core/cli.py task-check --feature <slug>` to determine the first ready task. Record it under `## Resume Notes` in `tasks.md`.
-   - (Optional state changes): Use `python3 core-zero/scripts/core/cli.py task-start/task-done/task-block --feature <slug> --task <T-NNN>`.
+   - Run `python3 corebase-specharness/scripts/core/cli.py task-check --feature <slug>` to verify zero dependency cycles or broken IDs.
+   - Run `python3 corebase-specharness/scripts/core/cli.py task-check --feature <slug>` to determine the first ready task. Record it under `## Resume Notes` in `tasks.md`.
+   - (Optional state changes): Use `python3 corebase-specharness/scripts/core/cli.py task-start/task-done/task-block --feature <slug> --task <T-NNN>`.
 
 5. **Definition of Ready & Phase Gate Handoff**:
    - Apply `../spec-plan/references/definition-of-ready.md`.
-   - Run `python3 core-zero/scripts/core/cli.py phase-check --feature <slug> --skill spec-tasks`. Fix any failures.
-   - Mark `Plan approved` `[x]`, then run `python3 core-zero/scripts/core/cli.py skill-exit --skill spec-tasks --feature <slug> --handoff spec-implement`.
+   - Run `python3 corebase-specharness/scripts/core/cli.py phase-check --feature <slug> --skill spec-tasks`. Fix any failures.
+   - Mark `Plan approved` `[x]`, then run `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill spec-tasks --feature <slug> --handoff spec-implement`.
 
 ## Anti-Patterns & Red Flags
 
@@ -92,5 +92,5 @@ Each task is a **tracer bullet**: a narrow but complete path that is demoable or
 
 - **Canonical Task IDs**: Every task MUST use `T-NNN` (e.g. `T-001`).
 - **No Spec Re-opening**: Stick strictly to approved requirements and technical design.
-- **Cycle-Free Graph**: Task dependency graph MUST pass `python3 core-zero/scripts/core/cli.py task-check`.
+- **Cycle-Free Graph**: Task dependency graph MUST pass `python3 corebase-specharness/scripts/core/cli.py task-check`.
 - **Verifiable Increments**: Every task MUST specify an explicit exit proof command.

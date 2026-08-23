@@ -13,7 +13,7 @@ triggers: ['testing scenario', 'test scenarios', 'test guide', 'manual test', 't
 |---|---|
 | **Reads** | `artifacts/features/<slug>/spec.md`, `plan.md`, `tasks.md` |
 | **Writes** | Required: `testing-scenarios.md` |
-| **Key CLI** | `python3 core-zero/scripts/core/cli.py context-load --skill spec-testing-scenario` |
+| **Key CLI** | `python3 corebase-specharness/scripts/core/cli.py context-load --skill spec-testing-scenario` |
 | **Entry** | Directly invokable peer skill; return to the caller after the bounded procedure |
 
 ## Overview
