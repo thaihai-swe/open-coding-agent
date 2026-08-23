@@ -1,14 +1,21 @@
-from typing import Any, Dict, Optional
+from .. import skills
 from ..registry import Tool, registry
 
 
-def skill(skill: str, args: Optional[Dict[str, Any]] = None) -> str:
-    if skill == "known":
-        return f"Loaded skill {skill}"
-    raise ValueError(f"Unknown skill: {skill}")
+def load_skill(name: str) -> str:
+    return skills.load_skill_content(name)
 
 
-TOOLS = [Tool("skill", "Agent", "LOW", "Loads workflow skill", {"required": ["skill"], "properties": {"skill": {"type": "string"}}}, skill)]
+TOOLS = [
+    Tool(
+        "load_skill",
+        "Agent",
+        "LOW",
+        "Load the full content of a skill by name.",
+        {"required": ["name"], "properties": {"name": {"type": "string"}}},
+        load_skill,
+    )
+]
 
 for tool in TOOLS:
     registry.register(tool)

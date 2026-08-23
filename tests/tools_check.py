@@ -11,6 +11,15 @@ from unittest.mock import patch
 
 from src.tools import invoke, registry
 from src.tools.permissions import AuthorizeDecision, AuthorizeOption
+from src.tools.skills import (
+    build_system_message,
+    expand_slash_prompt,
+    format_catalog,
+    load_skill_content,
+    parse_frontmatter,
+    scan_skills,
+)
+from src.tools.task_board import SYSTEM_MESSAGE
 
 
 class TestAuthorizeOption(unittest.TestCase):
@@ -432,6 +441,152 @@ class TestPlanningBoard(unittest.TestCase):
         dup = invoke("create_task", content="new content", id="t1")
         self.assertEqual(dup.get("status"), "error", dup)
         self.assertEqual(self._disk(), [{"id": "t1", "content": "original", "status": "pending"}])
+
+
+class TestSkillDiscovery(unittest.TestCase):
+    def setUp(self) -> None:
+        self._cwd = os.getcwd()
+        self._temp = tempfile.TemporaryDirectory()
+        os.chdir(self._temp.name)
+        self.project = Path(self._temp.name) / ".agents" / "skills"
+        self.global_root = Path(self._temp.name) / "home" / ".agents" / "skills"
+
+    def tearDown(self) -> None:
+        os.chdir(self._cwd)
+        self._temp.cleanup()
+
+    def _write_skill(self, root: Path, folder: str, text: str) -> Path:
+        path = root / folder / "SKILL.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def test_scan_project_skill_with_frontmatter(self) -> None:
+        # AC-001 / REQ-001, REQ-002, REQ-003 / T-001
+        body = "---\nname: my-skill\ndescription: A custom skill\n---\nDo the work.\n"
+        self._write_skill(self.project, "my-skill", body)
+        skills = scan_skills(project_root=self.project, global_root=self.global_root)
+        self.assertIn("my-skill", skills)
+        self.assertEqual(skills["my-skill"]["name"], "my-skill")
+        self.assertEqual(skills["my-skill"]["description"], "A custom skill")
+        self.assertEqual(skills["my-skill"]["content"], body)
+
+    def test_project_skill_overrides_global(self) -> None:
+        # AC-002 / REQ-005 / T-001
+        self._write_skill(
+            self.global_root,
+            "shared",
+            "---\nname: shared\ndescription: Global copy\n---\nGlobal body.\n",
+        )
+        project_body = "---\nname: shared\ndescription: Project copy\n---\nProject body.\n"
+        self._write_skill(self.project, "shared", project_body)
+        skills = scan_skills(project_root=self.project, global_root=self.global_root)
+        self.assertEqual(skills["shared"]["description"], "Project copy")
+        self.assertEqual(skills["shared"]["content"], project_body)
+
+    def test_missing_frontmatter_uses_folder_and_heading(self) -> None:
+        # AC-003 / REQ-004 / T-001
+        self._write_skill(self.project, "docs", "# Document Helper\n\nHelp with docs.\n")
+        skills = scan_skills(project_root=self.project, global_root=self.global_root)
+        self.assertEqual(skills["docs"]["name"], "docs")
+        self.assertEqual(skills["docs"]["description"], "Document Helper")
+
+    def test_parse_frontmatter_when_to_use_and_quotes(self) -> None:
+        # REQ-003 / T-001
+        meta, body = parse_frontmatter(
+            '---\nname: "sql-style"\ndescription: \'SQL guide\'\nwhen_to_use: writing queries\n---\nBody.\n',
+            "fallback",
+        )
+        self.assertEqual(meta["name"], "sql-style")
+        self.assertEqual(meta["description"], "SQL guide")
+        self.assertEqual(meta["when_to_use"], "writing queries")
+        self.assertEqual(body, "Body.\n")
+
+    def test_skip_directory_without_skill_md(self) -> None:
+        # REQ-002 / T-001
+        (self.project / "empty").mkdir(parents=True)
+        skills = scan_skills(project_root=self.project, global_root=self.global_root)
+        self.assertEqual(skills, {})
+
+    def test_format_catalog_empty_and_named(self) -> None:
+        # REQ-011 / T-001
+        self.assertEqual(format_catalog({}), "Skills available:\n(no skills found)")
+        text = format_catalog(
+            {
+                "pdf": {"name": "pdf", "description": "PDF helper", "when_to_use": "reading PDFs"},
+                "sql": {"name": "sql", "description": "SQL style"},
+            }
+        )
+        self.assertIn("Skills available:", text)
+        self.assertIn("- **pdf**: PDF helper (when to use: reading PDFs)", text)
+        self.assertIn("- **sql**: SQL style", text)
+        self.assertIn("Use load_skill to get full details when needed.", text)
+
+    def test_load_skill_content_and_build_system_message(self) -> None:
+        # REQ-007, REQ-010 / T-001
+        body = "---\nname: tester\ndescription: Tester\n---\nFull text.\n"
+        self._write_skill(self.project, "tester", body)
+        skills = scan_skills(project_root=self.project, global_root=self.global_root)
+        self.assertEqual(load_skill_content("tester", skills), body)
+        with self.assertRaises(ValueError) as raised:
+            load_skill_content("missing-skill", skills)
+        self.assertIn("Skill not found: missing-skill", str(raised.exception))
+        message = build_system_message(skills)
+        self.assertTrue(message.startswith(SYSTEM_MESSAGE))
+        self.assertIn("Skills available:", message)
+        self.assertIn("- **tester**: Tester", message)
+
+    def test_expand_slash_prompt(self) -> None:
+        # REQ-013 / T-001
+        skills = {"code-review": {"name": "code-review", "content": "BODY"}}
+        expanded, error = expand_slash_prompt("/code-review please check line 10", skills)
+        self.assertIsNone(error)
+        self.assertEqual(expanded, '<skill name="code-review">\nBODY\n</skill>\nplease check line 10')
+        bare, bare_error = expand_slash_prompt("/code-review", skills)
+        self.assertIsNone(bare_error)
+        self.assertEqual(bare, '<skill name="code-review">\nBODY\n</skill>')
+        missing, missing_error = expand_slash_prompt("/foo", skills)
+        self.assertIsNone(missing)
+        self.assertEqual(missing_error, "Unknown skill: /foo")
+        passthrough, passthrough_error = expand_slash_prompt("hello", skills)
+        self.assertEqual(passthrough, "hello")
+        self.assertIsNone(passthrough_error)
+
+    def test_load_skill_tool_registered_and_old_skill_stub_removed(self) -> None:
+        # AC-004 / REQ-006, REQ-009, REQ-014 / T-002
+        tool = registry.get("load_skill")
+        self.assertIsNotNone(tool)
+        self.assertEqual(tool.category, "Agent")
+        self.assertEqual(tool.risk_level, "LOW")
+        self.assertEqual(tool.schema.get("required"), ["name"])
+        self.assertEqual(tool.schema.get("properties", {}).get("name", {}).get("type"), "string")
+        self.assertIsNone(registry.get("skill"))
+
+    def test_invoke_load_skill_success(self) -> None:
+        # AC-005 / REQ-007 / T-002
+        body = "---\nname: tester\ndescription: Tester\n---\nFull content of tester.\n"
+        self._write_skill(self.project, "tester", body)
+        res = invoke("load_skill", name="tester")
+        self.assertEqual(res.get("status"), "success", res)
+        self.assertEqual(res.get("result"), body)
+
+    def test_invoke_load_skill_missing_error(self) -> None:
+        # AC-006 / REQ-008 / T-002
+        res = invoke("load_skill", name="missing-skill")
+        self.assertEqual(res.get("status"), "error", res)
+        self.assertIn("Skill not found: missing-skill", str(res.get("error")))
+
+    def test_invoke_load_skill_path_traversal_safe(self) -> None:
+        # AC-007 / REQ-007, REQ-008 / T-002
+        res = invoke("load_skill", name="../../etc/passwd")
+        self.assertEqual(res.get("status"), "error", res)
+        self.assertIn("Skill not found: ../../etc/passwd", str(res.get("error")))
+
+    def test_invoke_old_skill_stub_returns_unknown_tool(self) -> None:
+        # AC-008 / REQ-009 / T-002
+        res = invoke("skill", skill="known")
+        self.assertEqual(res.get("status"), "error", res)
+        self.assertIn("Unknown tool: skill", str(res.get("error")))
 
 
 if __name__ == "__main__":

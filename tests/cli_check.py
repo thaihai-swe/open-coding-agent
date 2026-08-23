@@ -48,6 +48,66 @@ class TestCli(unittest.TestCase):
         gitignore = Path(__file__).resolve().parent.parent / ".gitignore"
         self.assertIn(".cda/", gitignore.read_text(encoding="utf-8"))
 
+    def test_slash_command_expansion_and_unknown_handling(self) -> None:
+        # AC-013, AC-014, AC-016, AC-017 / REQ-013 / T-004
+        class MockEngine:
+            def __init__(self) -> None:
+                self.prompts: list[str] = []
+
+            def turn(self, prompt: str):
+                self.prompts.append(prompt)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cwd = os.getcwd()
+            os.chdir(temp_dir)
+            try:
+                skill_path = Path(".agents") / "skills" / "code-review" / "SKILL.md"
+                skill_path.parent.mkdir(parents=True, exist_ok=True)
+                skill_path.write_text("BODY OF CODE REVIEW", encoding="utf-8")
+
+                mock_engine = MockEngine()
+                events: list[dict] = []
+                ui_prompts = [
+                    "/code-review please check line 10",
+                    "/code-review",
+                    "/nonexistent-skill",
+                    "normal prompt",
+                    "",
+                ]
+
+                with (
+                    patch("src.presentation.cli.OpenAIProvider"),
+                    patch("src.presentation.cli.SessionStore"),
+                    patch("src.presentation.cli.QueryEngine", return_value=mock_engine),
+                    patch("src.presentation.cli.TerminalUI") as ui_cls,
+                ):
+                    ui_mock = ui_cls.return_value
+                    ui_mock.prompt.side_effect = ui_prompts
+                    ui_mock.event.side_effect = events.append
+
+                    code = run([])
+                    self.assertEqual(code, 0)
+
+                # AC-013: /code-review with args
+                self.assertEqual(len(mock_engine.prompts), 3)
+                self.assertEqual(
+                    mock_engine.prompts[0],
+                    '<skill name="code-review">\nBODY OF CODE REVIEW\n</skill>\nplease check line 10',
+                )
+                # AC-016: /code-review without args
+                self.assertEqual(
+                    mock_engine.prompts[1],
+                    '<skill name="code-review">\nBODY OF CODE REVIEW\n</skill>',
+                )
+                # AC-017: normal prompt passthrough
+                self.assertEqual(mock_engine.prompts[2], "normal prompt")
+
+                # AC-014: unknown slash command emits error event
+                error_events = [e for e in events if e.get("type") == "error"]
+                self.assertTrue(any("Unknown skill: /nonexistent-skill" in e.get("message", "") for e in error_events))
+            finally:
+                os.chdir(cwd)
+
 
 if __name__ == "__main__":
     unittest.main()

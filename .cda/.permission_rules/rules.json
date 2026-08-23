@@ -180,5 +180,27 @@
       "command": "python3 *"
     },
     "decision": "allow"
+  },
+  {
+    "tool": "config",
+    "pattern": {
+      "action": "*",
+      "key": "*"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "*"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "for *"
+    },
+    "decision": "allow"
   }
 ]

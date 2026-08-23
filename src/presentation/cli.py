@@ -10,6 +10,7 @@ from ..application.query_engine import QueryEngine
 from ..domain.errors import ProviderError
 from ..infrastructure.providers import OpenAIProvider
 from ..infrastructure.session_store import SessionStore
+from ..tools.skills import expand_slash_prompt
 from .terminal_ui import TerminalUI
 
 _UI_CONFIG_PATH = Path(".cda/ui-config.json")
@@ -62,6 +63,12 @@ def run(argv: list[str] | None = None) -> int:
             prompt = ui.prompt()
             if not prompt:
                 return 0
+            if prompt.startswith("/"):
+                expanded, err = expand_slash_prompt(prompt)
+                if err:
+                    ui.event({"type": "error", "message": err})
+                    continue
+                prompt = expanded
             try:
                 engine.turn(prompt)
                 if not args.json_mode:

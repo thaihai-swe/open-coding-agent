@@ -12,7 +12,8 @@ from ..infrastructure.session_store import SessionStore
 from ..tools import invoke, registry
 from ..tools import permission_rules
 from ..tools.permissions import AuthorizeDecision, hard_deny_reason
-from ..tools.task_board import PLANNING_MUTATION_NAMES, PLANNING_TOOL_NAMES, SYSTEM_MESSAGE, bind_session, reset_session
+from ..tools.skills import build_system_message
+from ..tools.task_board import PLANNING_MUTATION_NAMES, PLANNING_TOOL_NAMES, bind_session, reset_session
 from ..tools.types import Risk
 
 Authorize = Callable[[str, dict[str, Any]], AuthorizeDecision]
@@ -70,7 +71,7 @@ class QueryEngine:
         return replace(response, termination_reason="max_turns_reached")
 
     def _with_system(self, history: list[ChatMessage]) -> list[ChatMessage]:
-        return [ChatMessage("system", SYSTEM_MESSAGE), *history]
+        return [ChatMessage("system", build_system_message()), *history]
 
     def _collect_stream(self, deltas: Any) -> ProviderResponse:
         content = []

@@ -24,6 +24,11 @@ Project-wide vocabulary from `/starter-init` (2026-08-22). Domain/product names 
 | task board | The persisted per-session list of items `{id, content, status}` shown in human mode as Current Tasks | `3-to-do-management` |
 | nag reminder | User-role history message `<reminder>Update your todos.</reminder>` injected after 3 provider rounds with no successful planning mutation | `3-to-do-management` |
 | planning mutation | A successful `create_task`, `claim_task`, `complete_task`, or `cancel_task` call (not `list_tasks` or `get_task`) | `3-to-do-management` |
+| dynamic skill loading | Two-level knowledge loading: skill catalog in system prompt + full `SKILL.md` via `load_skill` tool on demand | `4-skills` |
+| skill catalog | Startup/turn scanned list of available skills (`- **name**: description`) injected into the system prompt | `4-skills` |
+| `load_skill` | The single LOW Agent tool that returns the full `SKILL.md` content of a skill by name | `4-skills` |
+| skill package | A directory under project `.agents/skills/` or `~/.agents/skills/` that contains `SKILL.md` | `4-skills` |
+| skill slash | REPL input `/<skill-name>` (optional trailing args) that expands that cataloged skill into a turn | `4-skills` |
 
 ## Technical Terms
 

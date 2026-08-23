@@ -1,0 +1,116 @@
+{
+  "source": "tasks.md",
+  "generated_at": "2026-08-23T20:48:38",
+  "errors": [],
+  "task_count": 5,
+  "tasks": [
+    {
+      "id": "T-001",
+      "header": "- [x] T-001 [US1] `src/tools/skills.py`, `tests/tools_check.py` \u2014 add `src/tools/skills.py` with pure stdlib `parse_frontmatter` (handles `---` blocks, extracts `name`, `description`, `when_to_use`, strips quotes/comments, fallback `name` to dir name, fallback `description` to first Markdown heading or non-empty line), `scan_skills` (scans global `~/.agents/skills/` then project `.agents/skills/`, project wins on collision, skips dirs without `SKILL.md`), `format_catalog` (`Skills available:\\n- **<name>**: <description>...` or `(no skills found)`), `load_skill_content`, `build_system_message` (combines planning `SYSTEM_MESSAGE` with `format_catalog`), and `expand_slash_prompt`; add unit tests in `tests/tools_check.py`.",
+      "status": "Done",
+      "done": true,
+      "depends": [],
+      "evidence": [
+        "`python3 tests/tools_check.py`",
+        "python3 tests/tools_check.py passed 43 tests (AC-001, AC-002, AC-003, REQ-001, REQ-002, REQ-003, REQ-004, REQ-005, REQ-007, REQ-010, REQ-011, REQ-013)."
+      ],
+      "acceptance_criteria": [
+        "AC-002",
+        "AC-003",
+        "AC-001"
+      ]
+    },
+    {
+      "id": "T-002",
+      "header": "- [x] T-002 [US2] `src/tools/handlers/agent.py`, `src/tools/registry.py`, `tests/tools_check.py` \u2014 rewrite `src/tools/handlers/agent.py` to register `load_skill` (category `Agent`, risk `LOW`, required `name`) and unregister old `skill` stub; handler invokes `skills.load_skill_content(name)`; test `registry.get(\"load_skill\")` is LOW Agent, `registry.get(\"skill\")` is `None`; test `invoke(\"load_skill\", name=\"...\")` returns full content for known skill; test unknown skill returns error containing `Skill not found: <name>`; test path traversal strings (e.g. `../../etc/passwd`) return `Skill not found: ../../etc/passwd` without raising or reading outside; test `invoke(\"skill\", ...)` returns unknown tool error.",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-001"
+      ],
+      "evidence": [
+        "`python3 tests/tools_check.py`",
+        "python3 tests/tools_check.py passed 48 tests. AC-004 load_skill LOW Agent required name, skill unregistered; AC-005 invoke load_skill returns SKILL.md; AC-006 Skill not found: missing-skill; AC-007 path traversal Skill not found: ../../etc/passwd; AC-008 invoke skill is unknown tool. invoke() made positional-only so name= can be a tool argument."
+      ],
+      "acceptance_criteria": [
+        "AC-006",
+        "AC-005",
+        "AC-004",
+        "AC-007",
+        "AC-008"
+      ]
+    },
+    {
+      "id": "T-003",
+      "header": "- [x] T-003 [US3] `src/application/query_engine.py`, `tests/query_engine_check.py` \u2014 update `QueryEngine._with_system` to invoke `skills.build_system_message()` on each `complete()`; test FakeProvider sees system message with `You should plan before executing.`, `create_task`, `Skills available:`, `- **<name>**:`; test empty catalog produces `(no skills found)`; test adding a skill mid-session updates the catalog on next prompt without restart; test `load_skill` skips `authorize`; test saved transcript in `.cda/.sessions/<id>.json` has no `role=system` messages.",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-002"
+      ],
+      "evidence": [
+        "`python3 tests/query_engine_check.py`",
+        "python3 tests/query_engine_check.py passed 44 tests. AC-009 catalog lists s1/s2 plus planning tools; AC-010 empty catalog is (no skills found); AC-011 session JSON has no system role; AC-012 load_skill skips authorize; AC-015 new SKILL.md appears on next complete()."
+      ],
+      "acceptance_criteria": [
+        "AC-009",
+        "AC-012",
+        "AC-015",
+        "AC-010",
+        "AC-011"
+      ]
+    },
+    {
+      "id": "T-004",
+      "header": "- [x] T-004 [US4] `src/presentation/cli.py`, `tests/cli_check.py` \u2014 update `run` in `src/presentation/cli.py` to check `prompt.startswith(\"/\")`; use `skills.expand_slash_prompt(prompt)` to resolve skill; if known, set prompt to `<skill name=\"<name>\">\\n{content}\\n</skill>` (plus `\\n{args}` if trailing args present) and run `engine.turn()`; if unknown, emit error event `Unknown skill: /<name>` and continue loop without calling `turn()`; non-slash prompts pass through unchanged; add unit tests in `tests/cli_check.py`.",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-003"
+      ],
+      "evidence": [
+        "`python3 tests/cli_check.py`",
+        "python3 tests/cli_check.py passed 6 tests. AC-013 /code-review with args expanded; AC-016 /code-review without args expanded; AC-014 /nonexistent-skill emitted Unknown skill error without running turn; AC-017 normal prompt passthrough."
+      ],
+      "acceptance_criteria": [
+        "AC-016",
+        "AC-013",
+        "AC-014",
+        "AC-017"
+      ]
+    },
+    {
+      "id": "T-005",
+      "header": "- [x] T-005 `src/`, `tests/` \u2014 run the full app test pack; verify no regressions in tools, permissions, session transcripts, query engine, or CLI.",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-004"
+      ],
+      "evidence": [
+        "`python3 -m compileall -q src` && `python3 -m unittest discover -s tests -p '*_check.py'`",
+        "python3 -m compileall -q src exit 0; python3 -m unittest discover -s tests -p '*_check.py' exit 0; 145 tests OK. AC-001 through AC-017 covered."
+      ],
+      "acceptance_criteria": [
+        "AC-006",
+        "AC-008",
+        "AC-009",
+        "AC-014",
+        "AC-005",
+        "AC-004",
+        "AC-012",
+        "AC-017",
+        "AC-013",
+        "AC-015",
+        "AC-002",
+        "AC-001",
+        "AC-007",
+        "AC-003",
+        "AC-016",
+        "AC-010",
+        "AC-011"
+      ]
+    }
+  ],
+  "markdown_hash": "5f2c8054c687604a6ae1e10b792dfb24e88c9e1c5a5ff67beab16b45c2e22efd"
+}

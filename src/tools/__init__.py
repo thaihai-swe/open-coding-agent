@@ -6,7 +6,7 @@ from .types import ConfigAction, MessageStatus, Risk, Status, ToolCategory
 TOOLS = list(registry.tools.values())
 
 
-def invoke(name: str, **kwargs):
+def invoke(name: str, /, **kwargs):
     tool = registry.get(name)
     if not tool:
         return {"status": Status.ERROR, "error": f"Unknown tool: {name}"}

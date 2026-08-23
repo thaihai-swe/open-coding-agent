@@ -1198,7 +1198,8 @@ class TestPlanningEngine(unittest.TestCase):
         data = json.loads(Path(".cda/.sessions/s1.json").read_text(encoding="utf-8"))
         self.assertEqual(list(data.keys()), ["messages"])
         self.assertFalse(any(message.get("role") == "system" for message in data["messages"]))
-        self.assertEqual(first.content, SYSTEM_MESSAGE)
+        self.assertTrue(first.content.startswith(SYSTEM_MESSAGE))
+        self.assertIn("Skills available:\n(no skills found)", first.content)
 
     def test_nag_after_three_text_only_rounds(self) -> None:
         # AC-019 / REQ-017 / T-004
@@ -1260,6 +1261,72 @@ class TestPlanningEngine(unittest.TestCase):
             if message.role == "user" and message.content == "<reminder>Update your todos.</reminder>"
         ]
         self.assertEqual(len(nag), 1)
+
+    def _write_skill(self, folder: str, text: str) -> None:
+        path = Path(".agents") / "skills" / folder / "SKILL.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def test_system_message_includes_skill_catalog(self) -> None:
+        # AC-009 / REQ-010, REQ-011 / T-003
+        self._write_skill("s1", "---\nname: s1\ndescription: First skill\n---\nOne.\n")
+        self._write_skill("s2", "---\nname: s2\ndescription: Second skill\n---\nTwo.\n")
+        provider = FakeProvider([ProviderResponse(ChatMessage("assistant", "ok"))])
+        engine = self._engine(provider, session_id="s1")
+        engine.turn("Hi")
+        first = provider.calls[0][0]
+        self.assertEqual(first.role, "system")
+        self.assertIn("You should plan before executing.", first.content)
+        self.assertIn("create_task", first.content)
+        self.assertIn("Skills available:", first.content)
+        self.assertIn("- **s1**: First skill", first.content)
+        self.assertIn("- **s2**: Second skill", first.content)
+        self.assertIn("Use load_skill to get full details when needed.", first.content)
+
+    def test_empty_catalog_shows_no_skills_found(self) -> None:
+        # AC-010 / REQ-011 / T-003
+        provider = FakeProvider([ProviderResponse(ChatMessage("assistant", "ok"))])
+        engine = self._engine(provider, session_id="s1")
+        engine.turn("Hi")
+        first = provider.calls[0][0]
+        self.assertIn("Skills available:\n(no skills found)", first.content)
+
+    def test_load_skill_turn_skips_authorize_and_does_not_persist_system(self) -> None:
+        # AC-011, AC-012 / REQ-012, REQ-014 / T-003
+        body = "---\nname: tester\ndescription: Tester\n---\nFull.\n"
+        self._write_skill("tester", body)
+        authorized: list[str] = []
+        responses = [
+            ProviderResponse(ChatMessage("assistant", tool_calls=(ToolCall("c1", "load_skill", {"name": "tester"}),))),
+            ProviderResponse(ChatMessage("assistant", "loaded")),
+        ]
+        engine = self._engine(
+            FakeProvider(responses),
+            session_id="s1",
+            authorize=lambda name, args: authorized.append(name) or _once(True),
+        )
+        engine.turn("Load it")
+        self.assertEqual(authorized, [])
+        result = engine.history[2].tool_result.content
+        self.assertFalse(engine.history[2].tool_result.is_error)
+        self.assertEqual(result.get("result"), body)
+        data = json.loads(Path(".cda/.sessions/s1.json").read_text(encoding="utf-8"))
+        self.assertFalse(any(message.get("role") == "system" for message in data["messages"]))
+        roles = [message.role for message in engine.history]
+        self.assertEqual(roles, ["user", "assistant", "tool", "assistant"])
+
+    def test_new_skill_appears_on_next_complete_without_restart(self) -> None:
+        # AC-015 / REQ-010 / T-003
+        provider = FakeProvider([
+            ProviderResponse(ChatMessage("assistant", "one")),
+            ProviderResponse(ChatMessage("assistant", "two")),
+        ])
+        engine = self._engine(provider, session_id="s1")
+        engine.turn("first")
+        self.assertIn("Skills available:\n(no skills found)", provider.calls[0][0].content)
+        self._write_skill("new-skill", "---\nname: new-skill\ndescription: Fresh\n---\nHi.\n")
+        engine.turn("second")
+        self.assertIn("- **new-skill**: Fresh", provider.calls[1][0].content)
 
 
 if __name__ == "__main__":
