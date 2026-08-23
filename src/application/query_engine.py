@@ -49,7 +49,8 @@ class QueryEngine:
             self._save()
             if not response.message.tool_calls:
                 return replace(response, termination_reason="completed")
-            self._run_batch(response.message.tool_calls)
+            if self._run_batch(response.message.tool_calls):
+                return replace(response, termination_reason="completed")
         return replace(response, termination_reason="max_turns_reached")
 
     def _collect_stream(self, deltas: Any) -> ProviderResponse:
@@ -63,9 +64,10 @@ class QueryEngine:
                 tool_calls = delta.tool_calls
         return ProviderResponse(ChatMessage("assistant", "".join(content) or None, tool_calls))
 
-    def _run_batch(self, tool_calls: tuple[ToolCall, ...]) -> None:
+    def _run_batch(self, tool_calls: tuple[ToolCall, ...]) -> bool:
         results: list[ToolResult | None] = [None] * len(tool_calls)
         approved: list[tuple[int, ToolCall, Any]] = []
+        hard_denied = False
         for index, call in enumerate(tool_calls):
             tool = registry.get(call.name)
             if tool is None:
@@ -76,6 +78,7 @@ class QueryEngine:
                 continue
             deny_reason = hard_deny_reason(tool, call.arguments)
             if deny_reason:
+                hard_denied = True
                 results[index] = ToolResult(call.id, {"error": deny_reason}, True)
                 continue
             if tool.risk_level in {Risk.HIGH, Risk.MEDIUM}:
@@ -111,6 +114,7 @@ class QueryEngine:
             self.on_event({"type": "tool_result", "name": call.name, "content": result.content, "is_error": result.is_error})
             self.history.append(ChatMessage("tool", tool_result=result))
         self._save()
+        return hard_denied
 
     def _invoke_call(self, call: ToolCall, tool: Any) -> ToolResult:
         try:

@@ -85,6 +85,7 @@ class TestTerminalUI(unittest.TestCase):
         self.assertIn("Yes", prompt_str)
         self.assertIn("No", prompt_str)
         self.assertIn("don't ask again", prompt_str)
+        self.assertIn("?\n[", prompt_str)
 
     def test_json_event(self) -> None:
         buf = io.StringIO()

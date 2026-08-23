@@ -368,6 +368,39 @@ class TestQueryEngine(unittest.TestCase):
             self.assertEqual(events[result_indexes[0]]["name"], "read_file")
             self.assertEqual(events[result_indexes[1]]["name"], "read_file")
 
+    def test_hard_deny_stops_turn_before_model_retry(self) -> None:
+        authorized: list[str] = []
+
+        def authorize(name: str, args: dict) -> AuthorizeDecision:
+            authorized.append(name)
+            return _once(True)
+
+        responses = [
+            ProviderResponse(
+                ChatMessage("assistant", tool_calls=(ToolCall("call-1", "bash", {"command": "sudo echo root"}),))
+            ),
+            ProviderResponse(
+                ChatMessage("assistant", tool_calls=(ToolCall("call-2", "bash", {"command": "echo root"}),))
+            ),
+            ProviderResponse(ChatMessage("assistant", "retried")),
+        ]
+        provider = FakeProvider(responses)
+        events: list[dict] = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = SessionStore(temp_dir)
+            session_id = store.create()
+            engine = QueryEngine(provider, store, session_id, authorize=authorize, on_event=events.append)
+            response = engine.turn("Hard deny then retry")
+
+            self.assertEqual(len(provider.calls), 1)
+            self.assertEqual(authorized, [])
+            self.assertEqual(response.termination_reason, "completed")
+            self.assertNotIn("tool_denied", [event["type"] for event in events])
+            self.assertTrue(engine.history[2].tool_result.is_error)
+            self.assertIn("Blocked:", str(engine.history[2].tool_result.content))
+            self.assertIn("sudo", str(engine.history[2].tool_result.content))
+            self.assertEqual(len(engine.history), 3)
+
     def test_hard_denied_bash_skips_authorize_and_handler(self) -> None:
         # AC-008 / REQ-001, REQ-007, REQ-008, REQ-015 / T-003
         authorized: list[str] = []

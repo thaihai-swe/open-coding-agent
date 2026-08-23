@@ -170,7 +170,7 @@ class TerminalUI:
 
     def authorize(self, name: str, arguments: dict[str, Any]) -> AuthorizeDecision:
         prompt = (
-            f"Approve {name} {json.dumps(arguments, sort_keys=True)}? "
+            f"Approve {name} {json.dumps(arguments, sort_keys=True)}?\n"
             f"[{AuthorizeOption.ALLOW_ONCE}] Yes "
             f"[{AuthorizeOption.ALLOW_ALWAYS}] Yes, don't ask again "
             f"[{AuthorizeOption.DENY_ONCE}] No "
