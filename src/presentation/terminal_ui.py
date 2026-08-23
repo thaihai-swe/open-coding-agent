@@ -9,6 +9,7 @@ from typing import Any
 
 from ..tools.permission_rules import wildcard_label
 from ..tools.permissions import AuthorizeDecision, AuthorizeOption
+from ..tools.task_board import PLANNING_BOARD_NAMES, format_board
 
 _ENTER = "enter"
 _NEWLINE = "newline"
@@ -193,9 +194,10 @@ class TerminalUI:
         elif event["type"] in {"tool", "tool_denied"}:
             self._write(f"[{event['type']}] {event['name']} {json.dumps(event['arguments'], sort_keys=True)}")
         elif event["type"] == "tool_result":
-            if not self.show_tool_results:
-                return
-            self._write(f"[tool_result] {event.get('name', '')} {event.get('content', '')}")
+            if self.show_tool_results:
+                self._write(f"[tool_result] {event.get('name', '')} {event.get('content', '')}")
+            if event.get("name") in PLANNING_BOARD_NAMES and not event.get("is_error"):
+                self._write(format_board(_board_items(event.get("content"))))
         elif event["type"] == "status":
             self._write(f"[status] {event.get('message', '')}")
         elif event["type"] == "error":
@@ -218,6 +220,19 @@ class TerminalUI:
                 body = body[hashes + 1 :]
             rendered.append(re.sub(r"\*\*(.+?)\*\*", r"\1", body) + newline)
         return "".join(rendered)
+
+
+def _board_items(content: Any) -> list[dict[str, Any]]:
+    if isinstance(content, list):
+        return content
+    if not isinstance(content, dict):
+        return []
+    result = content.get("result", content)
+    if isinstance(result, list):
+        return result
+    if isinstance(result, dict) and isinstance(result.get("tasks"), list):
+        return result["tasks"]
+    return []
 
 
 def _read_stdin_char_blocking() -> str:

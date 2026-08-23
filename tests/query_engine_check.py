@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import tempfile
@@ -14,6 +15,7 @@ from src.domain.provider import Provider
 from src.infrastructure.session_store import SessionStore
 from src.tools.permissions import AuthorizeDecision
 from src.tools.registry import Tool, registry
+from src.tools.task_board import SYSTEM_MESSAGE
 
 
 def _once(allow: bool) -> AuthorizeDecision:
@@ -1010,6 +1012,254 @@ class TestQueryEngine(unittest.TestCase):
                 self.assertFalse(Path(".permission_rules/rules.json").exists())
             finally:
                 os.chdir(cwd)
+
+
+class TestPlanningEngine(unittest.TestCase):
+    def setUp(self) -> None:
+        self._cwd = os.getcwd()
+        self._temp = tempfile.TemporaryDirectory()
+        os.chdir(self._temp.name)
+
+    def tearDown(self) -> None:
+        os.chdir(self._cwd)
+        self._temp.cleanup()
+
+    def _engine(self, provider, session_id="s1", authorize=None, on_event=None):
+        store = SessionStore()
+        if session_id not in store.list():
+            Path(store.directory).mkdir(parents=True, exist_ok=True)
+            store.save(session_id, [])
+        return QueryEngine(
+            provider,
+            store,
+            session_id,
+            authorize=authorize or (lambda name, args: _once(True)),
+            on_event=on_event,
+        )
+
+    def test_create_task_writes_session_todos_not_cwd_root(self) -> None:
+        # AC-003, AC-026 / REQ-004, REQ-019 / T-003
+        responses = [
+            ProviderResponse(
+                ChatMessage("assistant", tool_calls=(ToolCall("call-1", "create_task", {"content": "Write tests"}),))
+            ),
+            ProviderResponse(ChatMessage("assistant", "created")),
+        ]
+        engine = self._engine(FakeProvider(responses), session_id="s1")
+        engine.turn("Plan")
+        path = Path(".cda/.todos/s1.json")
+        self.assertTrue(path.is_file())
+        self.assertFalse(Path(".cda/.todos/default.json").exists())
+        self.assertFalse(Path(".todos").exists())
+        self.assertFalse(Path(".tasks").exists())
+        data = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["content"], "Write tests")
+        self.assertEqual(data[0]["status"], "pending")
+        result = engine.history[2].tool_result.content["result"]
+        self.assertEqual(result["id"], data[0]["id"])
+
+    def test_resume_same_session_lists_persisted_item(self) -> None:
+        # AC-013 / REQ-004 / T-003
+        first = [
+            ProviderResponse(
+                ChatMessage("assistant", tool_calls=(ToolCall("call-1", "create_task", {"content": "Write tests"}),))
+            ),
+            ProviderResponse(ChatMessage("assistant", "created")),
+        ]
+        self._engine(FakeProvider(first), session_id="s1").turn("Create")
+        listed = [
+            ProviderResponse(ChatMessage("assistant", tool_calls=(ToolCall("call-2", "list_tasks", {}),))),
+            ProviderResponse(ChatMessage("assistant", "listed")),
+        ]
+        engine = self._engine(FakeProvider(listed), session_id="s1")
+        engine.turn("List")
+        payload = engine.history[-2].tool_result.content
+        items = payload["result"] if isinstance(payload, dict) else payload
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["content"], "Write tests")
+        self.assertTrue(Path(".cda/.todos/s1.json").is_file())
+        self.assertFalse(Path(".cda/.todos/default.json").exists())
+
+    def test_other_session_is_isolated(self) -> None:
+        # AC-014 / REQ-004 / T-003
+        first = [
+            ProviderResponse(
+                ChatMessage("assistant", tool_calls=(ToolCall("call-1", "create_task", {"content": "Write tests"}),))
+            ),
+            ProviderResponse(ChatMessage("assistant", "created")),
+        ]
+        self._engine(FakeProvider(first), session_id="s1").turn("Create")
+        before = Path(".cda/.todos/s1.json").read_text(encoding="utf-8")
+        listed = [
+            ProviderResponse(ChatMessage("assistant", tool_calls=(ToolCall("call-2", "list_tasks", {}),))),
+            ProviderResponse(ChatMessage("assistant", "listed")),
+        ]
+        engine = self._engine(FakeProvider(listed), session_id="s2")
+        engine.turn("List other")
+        payload = engine.history[-2].tool_result.content
+        items = payload["result"] if isinstance(payload, dict) else payload
+        self.assertEqual(items, [])
+        self.assertEqual(Path(".cda/.todos/s1.json").read_text(encoding="utf-8"), before)
+        self.assertFalse(Path(".cda/.todos/s2.json").exists())
+
+    def test_session_json_has_no_task_board_fields(self) -> None:
+        # AC-015 / REQ-005 / T-003
+        responses = [
+            ProviderResponse(
+                ChatMessage("assistant", tool_calls=(ToolCall("call-1", "create_task", {"content": "Write tests"}),))
+            ),
+            ProviderResponse(ChatMessage("assistant", "created")),
+        ]
+        engine = self._engine(FakeProvider(responses), session_id="s1")
+        engine.turn("Plan")
+        data = json.loads(Path(".cda/.sessions/s1.json").read_text(encoding="utf-8"))
+        self.assertEqual(list(data.keys()), ["messages"])
+        for key in ("todos", "tasks", "task_board", "board"):
+            self.assertNotIn(key, data)
+
+    def test_create_task_does_not_call_authorize(self) -> None:
+        # AC-017 / REQ-001, REQ-018 / T-003
+        authorized: list[str] = []
+        responses = [
+            ProviderResponse(
+                ChatMessage("assistant", tool_calls=(ToolCall("call-1", "create_task", {"content": "Write tests"}),))
+            ),
+            ProviderResponse(ChatMessage("assistant", "created")),
+        ]
+        engine = self._engine(
+            FakeProvider(responses),
+            session_id="s1",
+            authorize=lambda name, args: (authorized.append(name) or _once(True)),
+        )
+        engine.turn("Plan")
+        self.assertEqual(authorized, [])
+        self.assertFalse(engine.history[2].tool_result.is_error)
+
+    def test_failing_create_then_list_keeps_listed_order(self) -> None:
+        # AC-025 / REQ-013, REQ-006 / T-003
+        responses = [
+            ProviderResponse(
+                ChatMessage(
+                    "assistant",
+                    tool_calls=(
+                        ToolCall("call-1", "create_task", {"content": ""}),
+                        ToolCall("call-2", "list_tasks", {}),
+                    ),
+                )
+            ),
+            ProviderResponse(ChatMessage("assistant", "both")),
+        ]
+        engine = self._engine(FakeProvider(responses), session_id="s1")
+        engine.turn("Mixed")
+        self.assertEqual(engine.history[2].tool_result.call_id, "call-1")
+        self.assertTrue(engine.history[2].tool_result.is_error)
+        self.assertEqual(engine.history[3].tool_result.call_id, "call-2")
+        self.assertFalse(engine.history[3].tool_result.is_error)
+        payload = engine.history[3].tool_result.content
+        items = payload["result"] if isinstance(payload, dict) else payload
+        self.assertEqual(items, [])
+
+    def test_two_creates_in_one_batch_apply_in_listed_order(self) -> None:
+        # AC-025 / REQ-013 / T-003
+        responses = [
+            ProviderResponse(
+                ChatMessage(
+                    "assistant",
+                    tool_calls=(
+                        ToolCall("call-1", "create_task", {"content": "A", "id": "a"}),
+                        ToolCall("call-2", "create_task", {"content": "B", "id": "b"}),
+                    ),
+                )
+            ),
+            ProviderResponse(ChatMessage("assistant", "both")),
+        ]
+        engine = self._engine(FakeProvider(responses), session_id="s1")
+        engine.turn("Two")
+        data = json.loads(Path(".cda/.todos/s1.json").read_text(encoding="utf-8"))
+        self.assertEqual([item["id"] for item in data], ["a", "b"])
+        self.assertEqual(engine.history[2].tool_result.call_id, "call-1")
+        self.assertEqual(engine.history[3].tool_result.call_id, "call-2")
+        self.assertFalse(engine.history[2].tool_result.is_error)
+        self.assertFalse(engine.history[3].tool_result.is_error)
+
+    def test_complete_prepends_system_message_not_saved(self) -> None:
+        # AC-015, AC-018 / REQ-005, REQ-016 / T-004
+        provider = FakeProvider([ProviderResponse(ChatMessage("assistant", "hello"))])
+        engine = self._engine(provider, session_id="s1")
+        engine.turn("Hi")
+        self.assertTrue(provider.calls)
+        first = provider.calls[0][0]
+        self.assertEqual(first.role, "system")
+        self.assertIn("plan before executing", first.content)
+        for name in ("create_task", "list_tasks", "get_task", "claim_task", "complete_task", "cancel_task"):
+            self.assertIn(name, first.content)
+        self.assertNotIn("system", [message.role for message in engine.history])
+        data = json.loads(Path(".cda/.sessions/s1.json").read_text(encoding="utf-8"))
+        self.assertEqual(list(data.keys()), ["messages"])
+        self.assertFalse(any(message.get("role") == "system" for message in data["messages"]))
+        self.assertEqual(first.content, SYSTEM_MESSAGE)
+
+    def test_nag_after_three_text_only_rounds(self) -> None:
+        # AC-019 / REQ-017 / T-004
+        provider = FakeProvider([
+            ProviderResponse(ChatMessage("assistant", "one")),
+            ProviderResponse(ChatMessage("assistant", "two")),
+            ProviderResponse(ChatMessage("assistant", "three")),
+            ProviderResponse(ChatMessage("assistant", "four")),
+        ])
+        engine = self._engine(provider, session_id="s1")
+        engine.turn("1")
+        engine.turn("2")
+        engine.turn("3")
+        engine.turn("4")
+        nag = [message for message in provider.calls[3] if message.role == "user" and message.content == "<reminder>Update your todos.</reminder>"]
+        self.assertEqual(len(nag), 1)
+        earlier = [
+            message
+            for call in provider.calls[:3]
+            for message in call
+            if message.role == "user" and message.content == "<reminder>Update your todos.</reminder>"
+        ]
+        self.assertEqual(earlier, [])
+
+    def test_successful_create_resets_nag_counter(self) -> None:
+        # AC-020 / REQ-017 / T-004
+        provider = FakeProvider([
+            ProviderResponse(
+                ChatMessage("assistant", tool_calls=(ToolCall("call-1", "create_task", {"content": "Write tests"}),))
+            ),
+            ProviderResponse(ChatMessage("assistant", "created")),
+            ProviderResponse(ChatMessage("assistant", "one")),
+            ProviderResponse(ChatMessage("assistant", "two")),
+        ])
+        engine = self._engine(provider, session_id="s1")
+        engine.turn("Create")
+        engine.turn("1")
+        engine.turn("2")
+        nag = [
+            message
+            for message in provider.calls[-1]
+            if message.role == "user" and message.content == "<reminder>Update your todos.</reminder>"
+        ]
+        self.assertEqual(nag, [])
+
+    def test_list_and_get_do_not_reset_nag_counter(self) -> None:
+        # AC-021 / REQ-017 / T-004
+        provider = FakeProvider([
+            ProviderResponse(ChatMessage("assistant", tool_calls=(ToolCall("c1", "list_tasks", {}),))),
+            ProviderResponse(ChatMessage("assistant", tool_calls=(ToolCall("c2", "get_task", {"id": "missing"}),))),
+            ProviderResponse(ChatMessage("assistant", tool_calls=(ToolCall("c3", "list_tasks", {}),))),
+            ProviderResponse(ChatMessage("assistant", "four")),
+        ])
+        engine = self._engine(provider, session_id="s1")
+        engine.turn("reads")
+        nag = [
+            message
+            for message in provider.calls[3]
+            if message.role == "user" and message.content == "<reminder>Update your todos.</reminder>"
+        ]
+        self.assertEqual(len(nag), 1)
 
 
 if __name__ == "__main__":

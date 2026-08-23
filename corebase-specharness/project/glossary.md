@@ -18,8 +18,12 @@ Project-wide vocabulary from `/starter-init` (2026-08-22). Domain/product names 
 | hard deny | A permission decision that never prompts and never runs the handler, including after Yes, “don't ask again”, `bypass_permissions`, or a project rules-file allow entry | `2-permission-gate` |
 | deny list | Fixed substrings that hard-deny `bash`/`powershell` `command` values | `2-permission-gate` |
 | project permission rule | User- or prompt-recorded allow/deny for one tool + primary-argument pattern, stored in `.cda/.permission_rules/rules.json` and shared by every session in that project | `2-permission-gate` |
-| `.cda` | Project-local CLI data directory under process cwd: `.sessions`, `.secrets`, and `.permission_rules` | `2-permission-gate` |
+| `.cda` | Project-local CLI data directory under process cwd: `.sessions`, `.secrets`, `.permission_rules`, and `.todos` | `2-permission-gate`, `3-to-do-management` |
 | primary argument | The fields that identify a project permission pattern: `command` (bash/powershell), `file_path` (write_file/edit_file), `action`+`key` (config), `url` (web_fetch), `code` (repl), otherwise the full argument map | `2-permission-gate` |
+| planning tools | The six LOW tools that own the session task board: `create_task`, `list_tasks`, `get_task`, `claim_task`, `complete_task`, `cancel_task` | `3-to-do-management` |
+| task board | The persisted per-session list of items `{id, content, status}` shown in human mode as Current Tasks | `3-to-do-management` |
+| nag reminder | User-role history message `<reminder>Update your todos.</reminder>` injected after 3 provider rounds with no successful planning mutation | `3-to-do-management` |
+| planning mutation | A successful `create_task`, `claim_task`, `complete_task`, or `cancel_task` call (not `list_tasks` or `get_task`) | `3-to-do-management` |
 
 ## Technical Terms
 
@@ -35,6 +39,7 @@ Project-wide vocabulary from `/starter-init` (2026-08-22). Domain/product names 
 | Authorize | UI callback used when a MEDIUM/HIGH call is not hard-denied and has no matching project permission rule; numbered `1`–`4` | `src/presentation/terminal_ui.py` |
 | `bypass_permissions` | Kwarg that skips the HIGH-without-approve `check_permission` branch after this call is allowed on the turn path; does not override hard deny | `src/application/query_engine.py`, `src/tools/permissions.py` |
 | `.cda/.permission_rules/rules.json` | Project-level JSON array of `tool`, `pattern`, and `decision` (`allow` or `deny`); source of truth for always-allow / always-deny | `2-permission-gate` |
+| `.cda/.todos/<session_id>.json` | Per-session task board: JSON array of `{id, content, status}` | `3-to-do-management` |
 | Composition root | `src/presentation/cli.py` wires provider, store, UI, engine | CLI |
 
 ## Abbreviations

@@ -240,6 +240,67 @@ class TestTerminalUI(unittest.TestCase):
         payload = json.loads(buf.getvalue())
         self.assertEqual(payload["content"], "# Title\n**bold**")
 
+    def test_human_list_tasks_prints_current_tasks_board(self) -> None:
+        # AC-022 / REQ-014 / T-005
+        buf = io.StringIO()
+        ui = TerminalUI(output=buf, json_mode=False, show_tool_results=False)
+        ui.event({
+            "type": "tool_result",
+            "name": "list_tasks",
+            "content": {"status": "success", "result": [{"id": "t1", "content": "Write tests", "status": "pending"}]},
+            "is_error": False,
+        })
+        output = buf.getvalue()
+        self.assertIn("## Current Tasks", output)
+        self.assertIn("[ ]", output)
+        self.assertIn("t1", output)
+        self.assertIn("Write tests", output)
+        self.assertNotIn("[tool_result]", output)
+
+    def test_human_empty_board_has_heading_without_markers(self) -> None:
+        # AC-023 / REQ-014 / T-005
+        buf = io.StringIO()
+        ui = TerminalUI(output=buf, json_mode=False)
+        ui.event({
+            "type": "tool_result",
+            "name": "list_tasks",
+            "content": {"status": "success", "result": []},
+            "is_error": False,
+        })
+        output = buf.getvalue()
+        self.assertIn("## Current Tasks", output)
+        self.assertNotIn("[ ]", output)
+        self.assertNotIn("[>]", output)
+        self.assertNotIn("[x]", output)
+
+    def test_json_create_task_keeps_feature1_event_types(self) -> None:
+        # AC-024 / REQ-015 / T-005
+        buf = io.StringIO()
+        ui = TerminalUI(output=buf, json_mode=True)
+        ui.event({
+            "type": "tool_result",
+            "name": "create_task",
+            "content": {"status": "success", "result": {"id": "t1", "content": "Write tests", "status": "pending", "tasks": [{"id": "t1", "content": "Write tests", "status": "pending"}]}},
+            "is_error": False,
+        })
+        payload = json.loads(buf.getvalue())
+        self.assertEqual(payload["type"], "tool_result")
+        allowed = {"text", "tool", "tool_denied", "error", "status", "tool_result"}
+        self.assertIn(payload["type"], allowed)
+        self.assertNotIn("## Current Tasks", buf.getvalue())
+
+    def test_human_get_task_does_not_reprint_board(self) -> None:
+        # AC-022 / REQ-014 / T-005
+        buf = io.StringIO()
+        ui = TerminalUI(output=buf, json_mode=False)
+        ui.event({
+            "type": "tool_result",
+            "name": "get_task",
+            "content": {"status": "success", "result": {"id": "t1", "content": "Write tests", "status": "pending"}},
+            "is_error": False,
+        })
+        self.assertNotIn("## Current Tasks", buf.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

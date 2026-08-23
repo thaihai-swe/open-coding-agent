@@ -12,6 +12,7 @@ from ..infrastructure.session_store import SessionStore
 from ..tools import invoke, registry
 from ..tools import permission_rules
 from ..tools.permissions import AuthorizeDecision, hard_deny_reason
+from ..tools.task_board import PLANNING_MUTATION_NAMES, PLANNING_TOOL_NAMES, SYSTEM_MESSAGE, bind_session, reset_session
 from ..tools.types import Risk
 
 Authorize = Callable[[str, dict[str, Any]], AuthorizeDecision]
@@ -26,15 +27,27 @@ class QueryEngine:
         self.on_event = on_event or (lambda event: None)
         self.max_turns = max_turns
         self.history = session.load(session_id) if session_id in session.list() else []
+        self._rounds_without_planning = 0
 
     def turn(self, prompt: str) -> ProviderResponse:
+        token = bind_session(self.session_id)
+        try:
+            return self._turn(prompt)
+        finally:
+            reset_session(token)
+
+    def _turn(self, prompt: str) -> ProviderResponse:
         self.history.append(ChatMessage("user", prompt))
         self._save()
         response: ProviderResponse | None = None
         turn_count = 0
         while turn_count < self.max_turns:
+            if self._rounds_without_planning >= 3:
+                self.history.append(ChatMessage("user", "<reminder>Update your todos.</reminder>"))
+                self._rounds_without_planning = 0
+                self._save()
             try:
-                completion = self.provider.complete(self.history, _tool_schemas(), stream=True)
+                completion = self.provider.complete(self._with_system(self.history), _tool_schemas(), stream=True)
                 if isinstance(completion, ProviderResponse):
                     response = completion
                     if response.message.content:
@@ -48,10 +61,16 @@ class QueryEngine:
             self.history.append(response.message)
             self._save()
             if not response.message.tool_calls:
+                self._rounds_without_planning += 1
                 return replace(response, termination_reason="completed")
-            if self._run_batch(response.message.tool_calls):
+            hard_denied, mutated = self._run_batch(response.message.tool_calls)
+            self._rounds_without_planning = 0 if mutated else self._rounds_without_planning + 1
+            if hard_denied:
                 return replace(response, termination_reason="completed")
         return replace(response, termination_reason="max_turns_reached")
+
+    def _with_system(self, history: list[ChatMessage]) -> list[ChatMessage]:
+        return [ChatMessage("system", SYSTEM_MESSAGE), *history]
 
     def _collect_stream(self, deltas: Any) -> ProviderResponse:
         content = []
@@ -64,7 +83,7 @@ class QueryEngine:
                 tool_calls = delta.tool_calls
         return ProviderResponse(ChatMessage("assistant", "".join(content) or None, tool_calls))
 
-    def _run_batch(self, tool_calls: tuple[ToolCall, ...]) -> bool:
+    def _run_batch(self, tool_calls: tuple[ToolCall, ...]) -> tuple[bool, bool]:
         results: list[ToolResult | None] = [None] * len(tool_calls)
         approved: list[tuple[int, ToolCall, Any]] = []
         hard_denied = False
@@ -112,17 +131,25 @@ class QueryEngine:
             self.on_event({"type": "status", "message": "running tools"})
             for _index, call, _tool in approved:
                 self.on_event({"type": "tool", "name": call.name, "arguments": call.arguments})
-            with ThreadPoolExecutor(max_workers=len(approved)) as pool:
-                futures = [(index, pool.submit(self._invoke_call, call, tool)) for index, call, tool in approved]
-            for index, future in futures:
-                results[index] = future.result()
+            planning = [(index, call, tool) for index, call, tool in approved if call.name in PLANNING_TOOL_NAMES]
+            others = [(index, call, tool) for index, call, tool in approved if call.name not in PLANNING_TOOL_NAMES]
+            for index, call, tool in planning:
+                results[index] = self._invoke_call(call, tool)
+            if others:
+                with ThreadPoolExecutor(max_workers=len(others)) as pool:
+                    futures = [(index, pool.submit(self._invoke_call, call, tool)) for index, call, tool in others]
+                for index, future in futures:
+                    results[index] = future.result()
+        mutated = False
         for index, call in enumerate(tool_calls):
             result = results[index]
             assert result is not None
             self.on_event({"type": "tool_result", "name": call.name, "content": result.content, "is_error": result.is_error})
             self.history.append(ChatMessage("tool", tool_result=result))
+            if not result.is_error and call.name in PLANNING_MUTATION_NAMES:
+                mutated = True
         self._save()
-        return hard_denied
+        return hard_denied, mutated
 
     def _invoke_call(self, call: ToolCall, tool: Any) -> ToolResult:
         try:
