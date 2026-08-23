@@ -7,6 +7,7 @@ All 11 CoreBase SpecHarness skills are peer-level direct entrypoints. `/starter-
 1. Select a skill such as `/spec-plan` and read its `SKILL.md`.
 2. Feature-bound delivery skills (`spec-research` through `harness-verify`) enter with `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill <name> [--feature <slug>] [--task <T-NNN>] --intent "<request>"`.
    That loads the route, opens or resumes the session, and writes the enter state to `status.md` when the route declares one.
+   Omit `--full` on that enter in the same uncompacted chat. Pass `--full` after the user compacted the conversation, on the first skill of a new chat for an existing feature, when the user asks to reload context, or when the pack is known stale. See `_shared/context-loading.md`.
    `starter-init`, `context-memory`, `harness-maintain`, `spec-adr`, and `spec-testing-scenario` have no enter/exit tokens; follow their `SKILL.md` and use context or session commands as documented.
    Inspect selection and omissions with `context-explain`; use
    `--add-source <repo-relative-path>` only for a focused expansion.

@@ -12,7 +12,7 @@ triggers: ['research', 'explore', 'brownfield', 'unknown', 'incident', '5 whys']
 | | |
 |---|---|
 | **Reads** | `corebase-specharness/project/architecture.md`, codebase files, domain packs, `status.md` |
-| **Writes** | Required: `analysis.md`. Optional: `status.md`. Session: `.corezero/sessions/<slug>/session.md` |
+| **Writes** | Required: `analysis.md`. Optional: `status.md`. Session: `.corebase-specharness/sessions/<slug>/session.md` |
 | **Key CLI** | `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-research --feature <slug> --intent "<request>"`, `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill spec-research --feature <slug> --handoff spec-requirements` |
 | **Suggested Handoff** | `/spec-requirements` |
 
@@ -44,12 +44,13 @@ Acts as the discovery engine of CoreBase SpecHarness, ensuring evidence-backed f
 - **Writes**:
   - `artifacts/features/<slug>/analysis.md` (containing `## Findings`, `## High Risk Paths`, `## Open Questions`, and `## Kaizen Countermeasures`)
   - `artifacts/features/<slug>/status.md` via `skill-enter` (`Researching`) and `skill-exit` (`ResearchComplete`)
-- **Session State**: Updates `.corezero/sessions/<slug>/session.md` (`## Objective`, `## Progress`, `## Handoff`).
+- **Session State**: Updates `.corebase-specharness/sessions/<slug>/session.md` (`## Objective`, `## Progress`, `## Handoff`).
 
 ## Step-by-Step Execution Workflow
 
 1. **Pre-flight**:
    - Run `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-research --feature <slug> --intent "<request>"`.
+   - Omit `--full` unless this conversation was compacted, this is the first skill in a new chat on an existing feature, the user asked to reload context, or the pack is known stale. See `skills/_shared/context-loading.md`.
    - Do not hand-edit `- Phase:`. The envelope creates `status.md` if needed and sets `Researching`.
 
 2. **Context & Domain Alignment**:

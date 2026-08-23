@@ -11,7 +11,7 @@ Intent-matched domain packs (`glossary.md` `triggers`) join the pack as
 When a user submits a prompt or invokes a skill (e.g. `/spec-plan`):
 
 1. **Route Selection & Entry (`skill-enter`)**:
-   Resolves the skill route from `references/context-routes.yaml`, verifies required preconditions, updates `status.md`, and initializes or resumes `.corezero/sessions/<slug>/session.md`.
+   Resolves the skill route from `references/context-routes.yaml`, verifies required preconditions, updates `status.md`, and initializes or resumes `.corebase-specharness/sessions/<slug>/session.md`.
 
 2. **Context Compilation (`context_engine.py`)**:
    Gathers mandatory bootstrap policies (`caveman.md`, `core-policies.md`), route-declared files, active feature artifacts, task-specific excerpts, matching domain packs, and bounded local search excerpts.
@@ -38,13 +38,31 @@ How to keep packs small:
 - **Task-scoped implement**: after `task-start`, run
   `context-load --skill spec-implement --feature <slug> --task T-NNN`. Full
   `tasks.md` is omitted.
-- **Session auto-delta**: omit `--full` unless the pack is stale. Later loads
-  keep only files whose SHA-256 fingerprint changed since
-  `session.md` `last_context_fingerprint`.
+- **Session auto-delta**: the user only invokes skills (`/spec-requirements`,
+  `/spec-plan`, …). In the same uncompacted chat, the agent omits `--full` on
+  `skill-enter`. The session accumulates fingerprints across skills. Later
+  skills keep only files and H2 sections whose SHA-256 fingerprint is new or
+  changed since `session.md` `last_context_fingerprint` /
+  `last_context_slices`. If `/spec-requirements` already injected a source,
+  `/spec-plan` does not inject it again unless the content or requested
+  section set changed. Pass `--full` when the user compacted this
+  conversation, on the first skill of a new chat for the same feature, when
+  the user asks to reload context, or when the pack is known stale.
+  `session-end` does not clear fingerprints. The compiler cannot detect
+  compact or a new chat.
 - **Bounded retrieval**: keep `--intent` to a few keywords. Scope
   `context.retrieval.roots` and `exclude` in `harness-config.yaml`. Excerpts
-  are capped by `max_retrieval_files` and `max_source_excerpt_tokens` and
-  pass through secret redaction.
+  are capped by `max_retrieval_files` (seed 4) and `max_source_excerpt_tokens`
+  (seed 400) and pass through secret redaction. Profiles `bootstrap`,
+  `verify`, and `compact` set `retrieval_files: 0` so they skip automatic
+  local retrieval. After `/spec-tasks`, omit `--full` on `/spec-implement`
+  and `/harness-verify` **in the same uncompacted chat** so session
+  auto-delta keeps unchanged `spec.md` / `plan.md` / `tasks.md` out of later
+  packs. The same omit-`--full` rule applies at every same-chat handoff:
+  `/spec-research` → `/spec-requirements` → `/spec-plan` → `/spec-tasks`.
+  After compact or a new chat on the same feature, pass `--full` on the
+  next enter, then omit it again for later skills in that chat.
+
 - **Durable memory**: log `[CANDIDATE]` during implement. `/harness-verify`
   writes `## Post-Ship Sync`. `/context-memory` promotes only recurrent or
   hard-safety lessons, then compacts prose 30–50% while keeping `##` headings
@@ -62,7 +80,7 @@ python3 corebase-specharness/scripts/core/cli.py context-load --skill spec-plan 
 python3 corebase-specharness/scripts/core/cli.py context-explain --skill spec-plan --feature <slug> --intent "design change" --json
 ```
 
-Sessions live under `.corezero/sessions/<slug>/`. Durable memory remains adopter-owned Markdown under `corebase-specharness/memories/` and `corebase-specharness/project/`. `/context-memory` triages `[CANDIDATE]` lessons; `memory-audit` and `memory-gate` are read-only diagnostics.
+Sessions live under `.corebase-specharness/sessions/<slug>/`. Durable memory remains adopter-owned Markdown under `corebase-specharness/memories/` and `corebase-specharness/project/`. `/context-memory` triages `[CANDIDATE]` lessons; `memory-audit` and `memory-gate` are read-only diagnostics.
 
 Each context pack includes source paths, selection reasons, provenance, trust
 labels, token estimates, and omitted-source reasons. Use

@@ -42,7 +42,7 @@ Provides QC and manual testers with setup steps, test data, expected results, an
 
 - **Reads**: `artifacts/features/<slug>/spec.md` (`AC-*`), `artifacts/features/<slug>/plan.md`, `artifacts/features/<slug>/tasks.md` (when available).
 - **Writes**: `artifacts/features/<slug>/testing-scenarios.md`.
-- **Session State**: Notes test sheet generation in `.corezero/sessions/<slug>/session.md`.
+- **Session State**: Notes test sheet generation in `.corebase-specharness/sessions/<slug>/session.md`.
 
 ## Step-by-Step Execution Workflow
 

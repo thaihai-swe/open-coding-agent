@@ -44,7 +44,7 @@ Can be invoked conditionally from `/spec-requirements`, `/spec-plan`, `/spec-tas
 - **Writes**:
   - `corebase-specharness/project/adr/[number]-[slug].md` (new ADR document)
   - `corebase-specharness/memories/repo/adr-log.md` (appended entry via Write Contract)
-- **Session State**: Notes decision in active feature session notes `.corezero/sessions/<slug>/session.md`.
+- **Session State**: Notes decision in active feature session notes `.corebase-specharness/sessions/<slug>/session.md`.
 
 ## Step-by-Step Execution Workflow
 

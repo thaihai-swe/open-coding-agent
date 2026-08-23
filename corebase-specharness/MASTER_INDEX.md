@@ -7,7 +7,7 @@ python3 corebase-specharness/scripts/core/cli.py skill-enter --skill <name> --fe
 python3 corebase-specharness/scripts/core/cli.py skill-exit --skill <name> --feature <slug> --handoff <next>
 ```
 
-Featureless skills omit `--feature`. Sessions live at `.corezero/sessions/<slug>/session.md`.
+Featureless skills omit `--feature`. Sessions live at `.corebase-specharness/sessions/<slug>/session.md`.
 
 ## Authorities
 

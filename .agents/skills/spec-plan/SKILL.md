@@ -18,7 +18,7 @@ triggers: ['plan', 'design', 'architecture', 'technical design']
 
 ## Overview
 
-Converts an approved spec into a safe, concrete technical design in `artifacts/features/<slug>/plan.md`. It answers: how will we build this safely? 
+Converts an approved spec into a safe, concrete technical design in `artifacts/features/<slug>/plan.md`. It answers: how will we build this safely?
 
 Defines module maps, component boundaries, dependency directions, complexity tracking, and proof strategies. `/spec-tasks` subsequently derives the executable task graph from this technical design.
 
@@ -44,12 +44,13 @@ Defines module maps, component boundaries, dependency directions, complexity tra
 - **Writes**:
   - `artifacts/features/<slug>/plan.md`
   - `artifacts/features/<slug>/status.md` via `skill-enter` / `skill-exit` (`Planning`)
-- **Session State**: Updates `.corezero/sessions/<slug>/session.md` (`## Objective`, `## Progress`, `## Handoff`).
+- **Session State**: Updates `.corebase-specharness/sessions/<slug>/session.md` (`## Objective`, `## Progress`, `## Handoff`).
 
 ## Step-by-Step Execution Workflow
 
 1. **Pre-flight**:
    - Run `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-plan --feature <slug> --intent "<request>"`.
+   - Omit `--full` unless this conversation was compacted, this is the first skill in a new chat on an existing feature, the user asked to reload context, or the pack is known stale. See `skills/_shared/context-loading.md`.
    - Do not hand-edit `- Phase:`.
 
 2. **Technical Solution Authoring**:

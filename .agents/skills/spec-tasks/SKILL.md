@@ -45,12 +45,13 @@ Each task is a **tracer bullet**: a narrow but complete path that is demoable or
 - **Writes**:
   - `artifacts/features/<slug>/tasks.md` (`T-NNN`, `Covers: AC-*`, `Depends on: T-NNN`)
   - `artifacts/features/<slug>/status.md` via `skill-enter` (`TaskPlanning`) and `skill-exit` (`PlanApproved`)
-- **Session State**: Updates `.corezero/sessions/<slug>/session.md` (`## Objective`, `## Progress`, `## Handoff`).
+- **Session State**: Updates `.corebase-specharness/sessions/<slug>/session.md` (`## Objective`, `## Progress`, `## Handoff`).
 
 ## Step-by-Step Execution Workflow
 
 1. **Pre-flight**:
    - Run `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-tasks --feature <slug> --intent "<request>"`.
+   - Omit `--full` unless this conversation was compacted, this is the first skill in a new chat on an existing feature, the user asked to reload context, or the pack is known stale. See `skills/_shared/context-loading.md`.
    - Confirm `plan.md` exists. Do not hand-edit `- Phase:`.
 
 2. **User Story Decomposition & Task Breakdown**:

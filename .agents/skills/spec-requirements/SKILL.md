@@ -46,12 +46,13 @@ Defines functional requirements (`REQ-*`), testable acceptance criteria (`AC-*`)
   - `artifacts/features/<slug>/status.md` via `skill-enter` (`Specifying`) and `skill-exit` (`SpecApproved`)
   - `artifacts/features/<slug>/proposal.md` (Moderate and Complex profiles)
   - Optional `artifacts/features/<slug>/requirements-review.md` (if readiness review flags issues)
-- **Session State**: Updates `.corezero/sessions/<slug>/session.md` (`## Objective`, `## Progress`, `## Handoff`).
+- **Session State**: Updates `.corebase-specharness/sessions/<slug>/session.md` (`## Objective`, `## Progress`, `## Handoff`).
 
 ## Step-by-Step Execution Workflow
 
 1. **Pre-flight**:
    - Run `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-requirements --feature <slug> --intent "<request>"`.
+   - Omit `--full` unless this conversation was compacted, this is the first skill in a new chat on an existing feature, the user asked to reload context, or the pack is known stale. See `skills/_shared/context-loading.md`.
    - Do not hand-edit `- Phase:`. The envelope creates `status.md` if needed and sets `Specifying`.
 
 2. **Intake & Context Alignment**:

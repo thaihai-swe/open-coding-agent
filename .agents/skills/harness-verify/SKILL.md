@@ -44,12 +44,13 @@ This skill is the **sole authority** for validating AC completion and transition
 - **Writes**:
   - `artifacts/features/<slug>/review.md` (verdict, gate outcomes, traceability tables)
   - `artifacts/features/<slug>/status.md` via `skill-enter` (`Verifying`) and `skill-exit` (`Done` or `--phase ChangesRequested`)
-- **Session State**: Updates `.corezero/sessions/<slug>/session.md` (`## Objective`, `## Progress`, `## Handoff`).
+- **Session State**: Updates `.corebase-specharness/sessions/<slug>/session.md` (`## Objective`, `## Progress`, `## Handoff`).
 
 ## Step-by-Step Execution Workflow
 
 1. **Pre-flight**:
    - Run `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill harness-verify --feature <slug> --intent "<request>"`.
+   - Omit `--full` unless this conversation was compacted, this is the first skill in a new chat on an existing feature, the user asked to reload context, or the pack is known stale. See `skills/_shared/context-loading.md`.
    - Run `python3 corebase-specharness/scripts/core/cli.py phase-check --feature <slug> --skill harness-verify`.
 
 2. **Mechanical Gate Audit**:
@@ -74,7 +75,7 @@ This skill is the **sole authority** for validating AC completion and transition
    - Write `## Post-Ship Sync` in `session-extracts.md` (use `no candidates` when none exist). `skill-exit` to `Done` fails without that heading and without `review.md`.
    - Invoke `/context-memory` after `Done` to promote candidate lessons. If the heading is skipped, insert `[:HALT SYNC REQUIRED]` and do not exit to `Done`.
    - Write verdict (`Pass`, `Pass with Follow-Up Debt`, or `Fail`) in `artifacts/features/<slug>/review.md` using `references/review-template.md`.
-   - On a passing verdict, confirm `verify` reports `details.verified: true` and records `corebase-specharness/generated/verification-runs.json`; then run `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill harness-verify --feature <slug> --handoff context-memory`.
+   - On a passing verdict, confirm `verify` reports `details.verified: true` and records `.corebase-specharness/generated/verification-runs.json`; then run `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill harness-verify --feature <slug> --handoff context-memory`.
     - If no confirmed gates exist or verification is not true, do not close normally. Use `ChangesRequested`, configure gates, or record a deliberate `--verification-override --override-reason "..."` exception.
    - On a failing verdict run `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill harness-verify --feature <slug> --phase ChangesRequested --handoff spec-implement`.
 

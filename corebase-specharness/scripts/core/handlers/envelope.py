@@ -95,7 +95,7 @@ def _done_authorization(root, feature, override=False, override_reason=""):
         if not override_reason.strip():
             return None, "--verification-override requires --override-reason"
         record = {"recorded_at": datetime.now(timezone.utc).isoformat(), "feature": feature, "authorization": "explicit_override", "reason": override_reason.strip()}
-        path = root / "corebase-specharness/generated/closeout-overrides.json"
+        path = root / ".corebase-specharness/generated/closeout-overrides.json"
         prior = []
         if path.is_file():
             try:
@@ -106,9 +106,13 @@ def _done_authorization(root, feature, override=False, override_reason=""):
         prior.append(record)
         atomic_write(path, json.dumps(prior[-50:], indent=2) + "\n")
         return record, None
-    path = root / "corebase-specharness/generated/verification-runs.json"
+    path = root / ".corebase-specharness/generated/verification-runs.json"
     if not path.is_file():
-        return None, "Done requires a successful non-dry-run verification record; run verify --skill harness-verify or provide an explicit override"
+        legacy_path = root / "corebase-specharness/generated/verification-runs.json"
+        if legacy_path.is_file():
+            path = legacy_path
+        else:
+            return None, "Done requires a successful non-dry-run verification record; run verify --skill harness-verify or provide an explicit override"
     try:
         records = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):

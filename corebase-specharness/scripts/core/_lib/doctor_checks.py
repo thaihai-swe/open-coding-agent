@@ -36,7 +36,8 @@ def check_manifest_overlap(root):
 
 
 def check_context_routes(root):
-    from core._lib.routing_metadata import load_routes, normalize_write, path_for_source
+    from core._lib.routing_metadata import (load_routes, normalize_write,
+                                            path_for_source)
     from core._lib.yaml_reader import load as load_yaml
 
     root = Path(root)
@@ -190,13 +191,15 @@ def check_surface_integrity(root):
         "corebase-specharness/scripts/core/handlers/configuration.py", "corebase-specharness/scripts/core/handlers/handoff.py",
         "corebase-specharness/scripts/core/handlers/upgrades.py",
         "corebase-specharness/scripts/core/readiness.py",
-        ".corezero/engine", ".corezero/scripts",
+        ".corebase-specharness/engine", ".corebase-specharness/scripts",
         "corebase-specharness/memories/repo/harness-config.md",
         "corebase-specharness/rules/architecture-principles.md",
         "corebase-specharness/rules/headroom.md",
+        "corebase-specharness/generated",
+        ".corezero",
     ]
     leftovers = [f"removed leftover remains: {path}" for path in removed if (root / path).exists()]
-    sessions = root / ".corezero" / "sessions"
+    sessions = root / ".corebase-specharness" / "sessions"
     if sessions.is_dir():
         leftovers.extend(
             f"removed leftover remains: {path.relative_to(root)}"

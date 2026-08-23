@@ -12,7 +12,7 @@ triggers: ['implement', 'code', 'build', 'deliver']
 | | |
 |---|---|
 | **Reads** | `corebase-specharness/rules/security.md`, `corebase-specharness/rules/code-design.md`, `spec.md`, `plan.md`, `tasks.md` |
-| **Writes** | Optional: project source, `tasks.md`, `status.md`, `session-extracts.md`. Session: `.corezero/sessions/<slug>/session.md` |
+| **Writes** | Optional: project source, `tasks.md`, `status.md`, `session-extracts.md`. Session: `.corebase-specharness/sessions/<slug>/session.md` |
 | **Key CLI** | `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-implement --feature <slug>`, `python3 corebase-specharness/scripts/core/cli.py task-start --feature <slug> --task <T-NNN>`, `python3 corebase-specharness/scripts/core/cli.py context-load --skill spec-implement --feature <slug> --task <T-NNN>`, `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill spec-implement --feature <slug> --handoff harness-verify` |
 | **Entry** | Directly invokable peer skill; handoff may suggest `/harness-verify` |
 
@@ -45,19 +45,20 @@ Enforces task locking (`python3 corebase-specharness/scripts/core/cli.py task-st
   - `artifacts/features/<slug>/status.md` via `skill-enter` / `skill-exit` (`Implementing`)
   - `artifacts/features/<slug>/tasks.md` (updated status, exit proofs, completion timestamps)
   - `artifacts/features/<slug>/session-extracts.md` (recording `[CANDIDATE]` lessons)
-- **Session State**: Updates `.corezero/sessions/<slug>/session.md` (`## Objective`, `## Progress`, `## Handoff`).
+- **Session State**: Updates `.corebase-specharness/sessions/<slug>/session.md` (`## Objective`, `## Progress`, `## Handoff`).
 
 ## Step-by-Step Execution Workflow
 
 1. **Pre-flight**:
    - Run `python3 corebase-specharness/scripts/core/cli.py skill-enter --skill spec-implement --feature <slug> --intent "<request>"`.
+   - Omit `--full` unless this conversation was compacted, this is the first skill in a new chat on an existing feature, the user asked to reload context, or the pack is known stale. See `skills/_shared/context-loading.md`.
    - Run `python3 corebase-specharness/scripts/core/cli.py phase-check --feature <slug> --skill spec-implement`.
    - *Spec-Staleness Check*: If `spec.md` modification date is newer than `plan.md` approval date, stamp `[:HALT STALE — spec amended after plan approved]` on plan/tasks and route to `/spec-plan`.
 
 2. **Task Selection & Locking**:
    - Run `python3 corebase-specharness/scripts/core/cli.py task-check --feature <slug>` to select the next ready unblocked task (`T-NNN`).
    - Lock task: Run `python3 corebase-specharness/scripts/core/cli.py task-start --feature <slug> --task <T-NNN>`. (Never edit checkboxes by hand).
-   - Reload a task-scoped pack before editing: `python3 corebase-specharness/scripts/core/cli.py context-load --skill spec-implement --feature <slug> --task <T-NNN> --intent "<request>"`. Do not pass `--full`. The compiler omits full `tasks.md` and injects only the active task plus its direct dependencies.
+   - Reload a task-scoped pack before editing: `python3 corebase-specharness/scripts/core/cli.py context-load --skill spec-implement --feature <slug> --task <T-NNN> --intent "<request>"`. Do not pass `--full` in the same uncompacted chat. Pass `--full` after compact, on the first skill of a new chat, or when the user asks to reload. The compiler omits full `tasks.md` and injects only the active task plus its direct dependencies.
    - If `task-check` finds no ready `T-NNN`, halt. Do not start coding against the full task list.
 
 3. **Pre-Flight Baseline & TDD Implementation**:
@@ -93,4 +94,4 @@ Enforces task locking (`python3 corebase-specharness/scripts/core/cli.py task-st
 - **Task-Scoped Context**: After `task-start`, coding turns MUST use `context-load --task T-NNN` so the full `tasks.md` is omitted.
 - **Mandatory Task Proof**: `task-done` REQUIRES non-empty `--evidence`.
 - **Ponytail Simplicity**: Maintain lazy senior dev mindset — use native features before adding dependencies.
-- **Context Eviction**: Summarize raw terminal gate logs and evict them from context. Do not pass `--full` unless the pack is known stale.
+- **Context Eviction**: Summarize raw terminal gate logs and evict them from context. Do not pass `--full` unless the conversation was compacted, this is a new chat on an existing feature, the user asked to reload context, or the pack is known stale.

@@ -120,7 +120,6 @@ skills:
       - {path: session-extracts.md, required: false}
     handoff: [harness-verify]
     sources:
-      - {path: corebase-specharness/memories/repo/core-policies.md, tier: Must, sections: [Memory Promotion Thresholds, Security Policy]}
       - {path: corebase-specharness/memories/repo/learned-heuristics.md, tier: Must, sections: [Heuristics]}
   - skill: harness-maintain
     phase: Verify
@@ -129,7 +128,7 @@ skills:
     prerequisites: []
     feature_artifacts: [status.md]
     writes:
-      - {path: corebase-specharness/generated/harness-assessment.md, required: false}
+      - {path: .corebase-specharness/generated/harness-assessment.md, required: false}
       - {path: corebase-specharness/memories/repo/learned-heuristics.md, required: false}
     handoff: []
     sources:

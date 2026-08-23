@@ -35,7 +35,7 @@ def init(args):
     root = _resolve_root(args, allow_uninitialized=True)
     directories = [
         "corebase-specharness/memories/repo", "corebase-specharness/memories/domain", "corebase-specharness/project",
-        "corebase-specharness/generated", "artifacts/features",
+        ".corebase-specharness/generated", "artifacts/features",
     ]
     seeds = [
         "corebase-specharness/memories/repo/core-policies.md",
@@ -58,7 +58,7 @@ def init(args):
                 writes.append(relative)
         gitignore = root / ".gitignore"
         existing = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
-        additions = ["corebase-specharness/generated/*"]
+        additions = [".corebase-specharness/generated/*"]
         missing = [line for line in additions if line not in existing.splitlines()]
         if missing:
             atomic_write(gitignore, existing.rstrip() + "\n" + "\n".join(missing) + "\n")
@@ -256,11 +256,11 @@ def verify(args):
     provider_details = provider.get("details", {})
     if not args.dry_run:
         _append_generated_record(
-            root / "corebase-specharness/generated/gate-runs.json",
+            root / ".corebase-specharness/generated/gate-runs.json",
             {"feature": args.feature, "gates": gate_results},
         )
         _append_generated_record(
-            root / "corebase-specharness/generated/provider-runs.json",
+            root / ".corebase-specharness/generated/provider-runs.json",
             {
                 "feature": args.feature,
                 "category": "review",
@@ -350,7 +350,7 @@ def verify(args):
             "provider_passed": provider_passed,
             "findings": findings,
         }
-        _append_generated_record(root / "corebase-specharness/generated/verification-runs.json", record)
+        _append_generated_record(root / ".corebase-specharness/generated/verification-runs.json", record)
         details["evidence_record"] = record
     if args.dry_run:
         details["warnings"] = [dry_run_warning]

@@ -29,7 +29,7 @@ def atomic_write(path, content):
 def default_session_dir(root, feature):
     if not feature:
         return None
-    return Path(root).resolve() / ".corezero" / "sessions" / validate_feature_slug(feature)
+    return Path(root).resolve() / ".corebase-specharness" / "sessions" / validate_feature_slug(feature)
 
 
 def default_session_path(root, feature):
@@ -150,7 +150,7 @@ def session_budget_report(root, feature, warn_tokens=40000, hard_tokens=80000):
 
 
 def last_pack_manifest(root, feature):
-    """Return the last context-pack baseline stored in session.md, if any."""
+    """Return the accumulated context-pack baseline stored in session.md, if any."""
     session_path = default_session_path(root, feature)
     if not session_path:
         return None
@@ -159,26 +159,30 @@ def last_pack_manifest(root, feature):
         return None
     metadata = session["metadata"]
     fingerprints = metadata.get("last_context_fingerprint") or {}
-    if not isinstance(fingerprints, dict) or not fingerprints:
+    slices = metadata.get("last_context_slices") or {}
+    if not isinstance(fingerprints, dict):
+        fingerprints = {}
+    if not isinstance(slices, dict):
+        slices = {}
+    if not fingerprints and not slices:
         return None
     selected = [
         {"path": path, "fingerprint": fingerprint}
         for path, fingerprint in fingerprints.items()
         if path
     ]
-    if not selected:
-        return None
     return {
         "skill": metadata.get("skill"),
         "feature": feature,
         "estimated_tokens": metadata.get("last_context_tokens", 0),
         "selected": selected,
         "fingerprints": fingerprints,
+        "slices": slices,
     }
 
 
 def record_context_pack(root, feature, pack):
-    """Persist the last context-pack manifest in session.md for auto-delta."""
+    """Merge this pack's fingerprints into the session baseline for auto-delta."""
     session_path = default_session_path(root, feature)
     if not session_path or not session_path.is_file():
         return None
@@ -189,12 +193,29 @@ def record_context_pack(root, feature, pack):
             for item in pack.get("selected") or []
             if isinstance(item, dict) and item.get("path")
         }
+    slices = pack.get("slices") or {}
     with locked(session_path):
         session = load_session(session_path)
         if not session:
             return None
         metadata = dict(session["metadata"])
-        metadata["last_context_fingerprint"] = fingerprints
+        prior_fp = dict(metadata.get("last_context_fingerprint") or {})
+        prior_slices = {
+            path: dict(smap)
+            for path, smap in (metadata.get("last_context_slices") or {}).items()
+            if path and isinstance(smap, dict)
+        }
+        for path, fingerprint in fingerprints.items():
+            if path and fingerprint:
+                prior_fp[path] = fingerprint
+        for path, smap in slices.items():
+            if not path or not isinstance(smap, dict):
+                continue
+            merged = dict(prior_slices.get(path) or {})
+            merged.update(smap)
+            prior_slices[path] = merged
+        metadata["last_context_fingerprint"] = prior_fp
+        metadata["last_context_slices"] = prior_slices
         prior = int(metadata.get("token_usage_estimate", 0) or 0)
         metadata["token_usage_estimate"] = prior + int(pack.get("estimated_tokens") or 0)
         metadata["last_context_tokens"] = int(pack.get("estimated_tokens") or 0)

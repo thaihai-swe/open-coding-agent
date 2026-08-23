@@ -142,8 +142,8 @@ log "Installing CoreBase SpecHarness v$manifest_version (overwrite files: $overw
 copy_group overwrite overwrite
 copy_group copyIfMissing seed
 if ! $dry_run; then
-  mkdir -p "$target/corebase-specharness/generated"
-  touch "$target/corebase-specharness/generated/.gitkeep"
+  mkdir -p "$target/.corebase-specharness/generated"
+  touch "$target/.corebase-specharness/generated/.gitkeep"
   chmod +x "$target/corebase-specharness/scripts/install.sh" "$target/corebase-specharness/scripts/validate-static-audit.py"
   python3 "$target/corebase-specharness/scripts/core/cli.py" doctor --root "$target" --json >/dev/null
 fi

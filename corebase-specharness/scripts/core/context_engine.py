@@ -23,7 +23,7 @@ from core.context_state import default_session_dir
 
 DEFAULT_TIER_BOOST = {"Must": 40, "Should": 20, "Skip": 0}
 DEFAULT_RETRIEVAL_EXCLUDES = {
-    ".git", ".corezero", ".venv", "node_modules", "vendor", "dist", "build",
+    ".git", ".corebase-specharness", ".venv", "node_modules", "vendor", "dist", "build",
     "coverage", "__pycache__", "corebase-specharness", "skills", "references", "artifacts",
 }
 SENSITIVE_FILENAMES = {".env", ".env.local", ".env.production", "id_rsa", "id_ed25519"}
@@ -113,6 +113,107 @@ def _content_fingerprint(root, item):
     return hashlib.sha256(raw).hexdigest()
 
 
+def _slice_fingerprints(root, item):
+    """Return {section_or_empty: hash} for one selected source."""
+    sections = item.get("sections") or []
+    fingerprint = item.get("fingerprint") or _content_fingerprint(root, item)
+    if not sections:
+        return {"": fingerprint}
+    return {
+        name: _content_fingerprint(root, {**item, "sections": [name]})
+        for name in sections
+    }
+
+
+def _index_previous_pack(previous):
+    """Build path fingerprint and per-section slice maps from a prior pack or session cache."""
+    fingerprints = {}
+    slices = {}
+    if not isinstance(previous, dict):
+        return fingerprints, slices
+    for item in previous.get("selected") or []:
+        if not isinstance(item, dict):
+            continue
+        path = item.get("path")
+        if not path:
+            continue
+        if item.get("fingerprint"):
+            fingerprints[path] = item["fingerprint"]
+        item_slices = item.get("slices")
+        if isinstance(item_slices, dict) and item_slices:
+            slices[path] = dict(item_slices)
+    raw_fp = previous.get("fingerprints")
+    if isinstance(raw_fp, dict):
+        for path, fingerprint in raw_fp.items():
+            if path and isinstance(fingerprint, str):
+                fingerprints.setdefault(path, fingerprint)
+    raw_slices = previous.get("slices")
+    if isinstance(raw_slices, dict):
+        for path, smap in raw_slices.items():
+            if path and isinstance(smap, dict):
+                slices[path] = {**slices.get(path, {}), **smap}
+    return fingerprints, slices
+
+
+def _full_file_fingerprint(root, item):
+    if item.get("runtime_summary") is not None:
+        return item.get("fingerprint") or _content_fingerprint(root, item)
+    return _content_fingerprint(root, {**item, "sections": None})
+
+
+def _delta_selected_item(root, item, previous_fingerprints, previous_slices):
+    """Return a possibly section-trimmed item, or None when already loaded unchanged."""
+    path = item["path"]
+    old_fingerprint = previous_fingerprints.get(path)
+    old_slices = previous_slices.get(path) or {}
+    if old_fingerprint and old_fingerprint == item.get("fingerprint"):
+        return None
+    sections = list(item.get("sections") or [])
+    if not sections:
+        if old_slices.get("") == item.get("fingerprint"):
+            return None
+        updated = dict(item)
+        updated["delta_reason"] = "new" if not old_fingerprint and not old_slices else "changed"
+        return updated
+    if "" in old_slices and old_slices.get("") == _full_file_fingerprint(root, item):
+        return None
+    current_slices = _slice_fingerprints(root, item)
+    kept = [name for name in sections if old_slices.get(name) != current_slices.get(name)]
+    if not kept:
+        return None
+    updated = dict(item)
+    if kept != sections:
+        updated["sections"] = kept
+        if updated.get("runtime_summary") is None:
+            source = Path(root) / updated.get("content_path", path)
+            text = source.read_text(encoding="utf-8", errors="replace") if source.is_file() else ""
+            updated["content"] = "\n\n".join(
+                extract_section(text, name) or "" for name in kept
+            )
+        updated["tokens"] = estimate_tokens(updated.get("content") or "")
+        updated["fingerprint"] = _content_fingerprint(root, updated)
+        updated["delta_reason"] = "changed"
+        return updated
+    updated["delta_reason"] = "new" if not old_fingerprint and not old_slices else "changed"
+    return updated
+
+
+def _load_delta_baseline(delta_from):
+    """Return (fingerprints, slices, label) for a session cache or --delta-from JSON."""
+    if not delta_from:
+        return {}, {}, None
+    if isinstance(delta_from, dict):
+        previous = delta_from
+        label = "session"
+    else:
+        previous = json.loads(Path(delta_from).read_text(encoding="utf-8"))
+        label = str(delta_from)
+    fingerprints, slices = _index_previous_pack(previous)
+    if not fingerprints and not slices:
+        return {}, {}, None
+    return fingerprints, slices, label
+
+
 def _merge_context_entry(entries, path, tier, sections, reason, channel="project", **extra):
     key = str(Path(path).resolve())
     current = entries.get(key)
@@ -163,7 +264,7 @@ def _channel_limits(root):
         "project": project_limit,
         "feature": feature_limit,
         "task": feature_limit,
-        "retrieved": int(context.get("max_retrieved_tokens", 1600)),
+        "retrieved": int(context.get("max_retrieved_tokens", 1000)),
         "durable_memory": project_limit,
         "explicit": project_limit,
     }
@@ -249,7 +350,7 @@ def _task_context_payload(path, task_id):
         lines.append(f"  - Covers: {', '.join(active['acceptance_criteria'])}")
     if active.get("evidence"):
         lines.append(f"  - Proof: {'; '.join(active['evidence'])}")
-    
+
     if active.get("depends"):
         lines.extend(["", "## Direct Dependencies"])
         for dep_id in active["depends"]:
@@ -352,7 +453,7 @@ def _pinnable_paths(root, settings):
     return pinned
 
 
-def _retrieval_settings(root):
+def _retrieval_settings(root, profile=""):
     context = _context_settings(root)
     retrieval = context.get("retrieval") or {}
     roots = retrieval.get("roots") or ["."]
@@ -366,15 +467,20 @@ def _retrieval_settings(root):
             for line in gitignore.read_text(encoding="utf-8", errors="replace").splitlines()
             if line.strip() and not line.lstrip().startswith("#") and not line.lstrip().startswith("!")
         ]
+    profile_config = (context.get("profiles") or {}).get(profile) or {}
+    if "retrieval_files" in profile_config:
+        max_files = int(profile_config.get("retrieval_files") or 0)
+    else:
+        max_files = int(context.get("max_retrieval_files", 4))
     return {
         "roots": [str(value) for value in roots],
         "excluded": excluded,
-        "max_files": int(context.get("max_retrieval_files", 8)),
+        "max_files": max_files,
         "max_excerpt_tokens": min(
-            int(context.get("max_source_excerpt_tokens", 900)),
-            int(context.get("max_tool_output_tokens", context.get("max_source_excerpt_tokens", 900))),
+            int(context.get("max_source_excerpt_tokens", 400)),
+            int(context.get("max_tool_output_tokens", context.get("max_source_excerpt_tokens", 400))),
         ),
-        "max_total_tokens": int(context.get("max_retrieved_tokens", 2400)),
+        "max_total_tokens": int(context.get("max_retrieved_tokens", 1000)),
         "gitignore_patterns": patterns,
         "suffix_allowlist": {str(value).lower() for value in (retrieval.get("suffix_allowlist") or [])},
         "suffix_priority": retrieval.get("suffix_priority") or {},
@@ -470,6 +576,8 @@ def _excerpt_for_matches(text, scorer, max_tokens):
 
 
 def _retrieve_local_evidence(root, intent, feature, task, entries, settings):
+    if int(settings.get("max_files") or 0) <= 0 or int(settings.get("max_total_tokens") or 0) <= 0:
+        return []
     root = Path(root).resolve()
     query = " ".join(part for part in (intent, feature, task) if part)
     scorer = Scorer(query)
@@ -535,7 +643,7 @@ def _retrieve_local_evidence(root, intent, feature, task, entries, settings):
 
 def _channel_for_path(path, root):
     relative = str(Path(path).resolve().relative_to(Path(root).resolve()))
-    if relative.startswith("artifacts/") or relative.startswith(".corezero/"):
+    if relative.startswith("artifacts/") or relative.startswith(".corebase-specharness/"):
         return "feature"
     if relative.startswith("corebase-specharness/memories/"):
         return "durable_memory"
@@ -583,13 +691,15 @@ def build_context_pack(
         int(payload_budget if payload_budget is not None else configured_payload),
         configured_payload,
     )
-    retrieval = _retrieval_settings(root)
+    retrieval = _retrieval_settings(root, profile_name)
     channel_limits = _channel_limits(root)
 
     entries = {}
     policy_sections = ["Purpose", "Normative Rules"]
-    if skill_name in {"spec-implement", "harness-verify", "spec-adr"}:
+    if skill_name in {"spec-implement", "harness-verify"}:
         policy_sections = ["Purpose", "Normative Rules", "Security Policy"]
+    elif skill_name == "context-memory":
+        policy_sections = ["Purpose", "Normative Rules", "Memory Promotion Thresholds", "Security Policy"]
     always = [
         ("corebase-specharness/rules/caveman.md", "Must", None, "communication rule"),
         ("corebase-specharness/memories/repo/core-policies.md", "Must", policy_sections, "runtime policy"),
@@ -743,7 +853,16 @@ def build_context_pack(
         value["tokens"],
         str(value["item"]["path"]).lower(),
     ))
-    selected, omitted, total, channel_totals = [], [], 0, {}
+    warnings = []
+    previous_fingerprints, previous_slices, delta_label = {}, {}, None
+    if delta_from:
+        try:
+            previous_fingerprints, previous_slices, delta_label = _load_delta_baseline(delta_from)
+        except (OSError, ValueError, TypeError) as exc:
+            warnings.append(f"delta ignored: {exc}")
+    delta_active = bool(delta_label)
+
+    selected, omitted, covered, delta_omitted, total, channel_totals = [], [], [], [], 0, {}
     for candidate in candidates:
         item = candidate["item"]
         path = item["path"]
@@ -757,7 +876,41 @@ def build_context_pack(
                 "provenance": item.get("provenance", "route"),
             })
             continue
-        tokens = candidate["tokens"]
+        selected_item = {
+            "path": relative,
+            "content_path": relative,
+            "sections": candidate["sections"] or None,
+            "tier": item["tier"],
+            "reason": item["reason"],
+            "channels": item["channels"],
+            "tokens": candidate["tokens"],
+            "partial": candidate["partial"],
+            "provenance": item.get("provenance", "declared_route"),
+            "trust": item.get("trust", "trusted_kit" if relative.startswith("corebase-specharness/") else "repository_evidence"),
+            "confidence": item.get("confidence", round(candidate["score"] / 100, 3)),
+        }
+        if item.get("suffix") is not None:
+            selected_item["suffix"] = item["suffix"]
+        if item.get("runtime_summary") is not None:
+            selected_item["runtime_summary"] = item["runtime_summary"]
+        selected_item["content"] = candidate.get("content") or ""
+        selected_item["fingerprint"] = _content_fingerprint(root, selected_item)
+        injected = selected_item
+        if delta_active:
+            updated = _delta_selected_item(
+                root, selected_item, previous_fingerprints, previous_slices,
+            )
+            if updated is None:
+                delta_omitted.append({
+                    "path": relative,
+                    "reason": "unchanged since prior session load",
+                    "tokens": selected_item.get("tokens", 0),
+                    "provenance": "session_delta",
+                })
+                covered.append(selected_item)
+                continue
+            injected = updated
+        tokens = injected["tokens"]
         if item["tier"] != "Must" and payload_budget and total + tokens > payload_budget:
             omitted.append({
                 "path": relative, "reason": "budget exceeded", "tokens": tokens,
@@ -777,31 +930,12 @@ def build_context_pack(
                 "provenance": item.get("provenance", "capacity_limit"),
             })
             continue
-        selected_item = {
-            "path": relative,
-            "content_path": relative,
-            "sections": candidate["sections"] or None,
-            "tier": item["tier"],
-            "reason": item["reason"],
-            "channels": item["channels"],
-            "tokens": tokens,
-            "partial": candidate["partial"],
-            "provenance": item.get("provenance", "declared_route"),
-            "trust": item.get("trust", "trusted_kit" if relative.startswith("corebase-specharness/") else "repository_evidence"),
-            "confidence": item.get("confidence", round(candidate["score"] / 100, 3)),
-        }
-        if item.get("suffix") is not None:
-            selected_item["suffix"] = item["suffix"]
-        if item.get("runtime_summary") is not None:
-            selected_item["runtime_summary"] = item["runtime_summary"]
-        selected_item["content"] = candidate.get("content") or ""
-        selected_item["fingerprint"] = _content_fingerprint(root, selected_item)
-        selected.append(selected_item)
+        selected.append(injected)
+        covered.append(selected_item)
         total += tokens
         for channel in item["channels"]:
             channel_totals[channel] = channel_totals.get(channel, 0) + tokens
 
-    warnings = []
     if payload_budget and total > payload_budget:
         warnings.append(
             f"mandatory context exceeds payload budget by {total - payload_budget} tokens; "
@@ -813,7 +947,7 @@ def build_context_pack(
                 f"mandatory {channel} context exceeds its budget by "
                 f"{channel_totals[channel] - limit} tokens; all Must sources were retained"
             )
-    pack = {
+    return {
         "selected": selected,
         "omitted": omitted,
         "estimated_tokens": total,
@@ -834,41 +968,11 @@ def build_context_pack(
             "channel_limits": channel_limits,
         },
         "warnings": warnings,
-        "delta": False,
-        "delta_from": None,
-        "fingerprints": {item["path"]: item["fingerprint"] for item in selected},
+        "delta": delta_active,
+        "delta_from": delta_label,
+        "fingerprints": {item["path"]: item["fingerprint"] for item in covered},
+        "slices": {item["path"]: _slice_fingerprints(root, item) for item in covered},
+        "delta_omitted": delta_omitted,
+        "unchanged_selected": len(delta_omitted),
+        "baseline_selected": len(set(previous_fingerprints) | set(previous_slices)),
     }
-
-    if delta_from:
-        try:
-            if isinstance(delta_from, dict):
-                previous = delta_from
-            else:
-                previous = json.loads(Path(delta_from).read_text(encoding="utf-8"))
-            previous_items = {
-                item.get("path"): item for item in previous.get("selected", [])
-                if isinstance(item, dict) and item.get("path")
-            }
-            if not previous_items and isinstance(previous.get("fingerprints"), dict):
-                previous_items = {
-                    path: {"path": path, "fingerprint": fp}
-                    for path, fp in previous["fingerprints"].items()
-                }
-            changed = []
-            unchanged = 0
-            for item in selected:
-                old = previous_items.get(item["path"])
-                if not old or old.get("fingerprint") != item["fingerprint"]:
-                    item["delta_reason"] = "new" if not old else "changed"
-                    changed.append(item)
-                else:
-                    unchanged += 1
-            pack["selected"] = changed
-            pack["estimated_tokens"] = sum(item["tokens"] for item in changed)
-            pack["delta"] = True
-            pack["delta_from"] = str(delta_from) if not isinstance(delta_from, dict) else "session"
-            pack["baseline_selected"] = len(previous_items)
-            pack["unchanged_selected"] = unchanged
-        except (OSError, ValueError, TypeError) as exc:
-            pack["warnings"].append(f"delta ignored: {exc}")
-    return pack

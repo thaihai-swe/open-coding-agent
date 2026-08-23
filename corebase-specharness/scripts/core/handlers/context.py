@@ -54,6 +54,19 @@ def _manifest_selected(items):
     return stripped
 
 
+def _delta_fields(pack):
+    """Return inspectable session-delta fields without turning skips into warnings."""
+    if not pack.get("delta"):
+        return {}
+    return {
+        "delta": True,
+        "delta_from": pack.get("delta_from"),
+        "baseline_selected": pack.get("baseline_selected", 0),
+        "unchanged_selected": pack.get("unchanged_selected", 0),
+        "delta_omitted": pack.get("delta_omitted") or [],
+    }
+
+
 def _pack(args):
     root = _resolve_root(args)
     route = skill_route(root, args.skill)
@@ -116,8 +129,10 @@ def context_pack(args):
                 "budget_categories": pack.get("budget_categories", {}),
                 "tokenizer": pack.get("tokenizer"),
                 **session_budget,
+                **_delta_fields(pack),
             },
             "dry_run": getattr(args, "dry_run", False),
+            **_delta_fields(pack),
         },
     )
 
@@ -158,8 +173,10 @@ def context_load(args):
             "budget_categories": pack.get("budget_categories", {}),
             "tokenizer": pack.get("tokenizer"),
             **session_budget,
+            **_delta_fields(pack),
         },
         "dry_run": getattr(args, "dry_run", False),
+        **_delta_fields(pack),
     }
     return _result(
         "context-load",
@@ -196,6 +213,16 @@ def context_explain(args):
         }
         for item in pack["omitted"]
     )
+    findings.extend(
+        {
+            "path": item["path"],
+            "decision": "omitted",
+            "reason": item.get("reason", "unchanged since prior session load"),
+            "provenance": item.get("provenance", "session_delta"),
+            "tokens": item.get("tokens", 0),
+        }
+        for item in pack.get("delta_omitted") or []
+    )
     warnings = list(pack["warnings"]) + _session_budget_warning(session_budget)
     return _result(
         "context-explain",
@@ -215,9 +242,11 @@ def context_explain(args):
                 "budget_categories": pack.get("budget_categories", {}),
                 "tokenizer": pack.get("tokenizer"),
                 **session_budget,
+                **_delta_fields(pack),
             },
             "selected": _manifest_selected(pack["selected"]),
             "omitted": pack["omitted"],
+            **_delta_fields(pack),
         },
     )
 
