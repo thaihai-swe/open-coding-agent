@@ -1,0 +1,97 @@
+{
+  "source": "tasks.md",
+  "generated_at": "2026-08-23T21:43:07",
+  "errors": [],
+  "task_count": 3,
+  "tasks": [
+    {
+      "id": "T-001",
+      "header": "- [x] T-001 [US1] [US2] [US6] `src/tools/config.py`, `src/tools/compact.py`, `src/prompts/compact.md`, `src/tools/prompt.py`, `tests/tools_check.py` \u2014 implement `src/tools/config.py` (`load_config`, `resolve_compact_config`, `DEFAULT_CONFIG` with s08 defaults), `src/prompts/compact.md` bundled prompt template, `src/tools/prompt.py` `\"compact\"` section registration in `PROMPT_SECTIONS` and `FALLBACK_SECTIONS`, and `src/tools/compact.py` pure transformers (`estimate_history_chars`, `tool_result_budget` persisting large outputs >200KB to `.cda/task_outputs/tool-results/<call_id>.txt` with `<persisted-output>` preview, `snip_compact` trimming middle messages when >50 while protecting `assistant(tool_calls)` -> `tool(tool_result)` pairings with `[snipped N messages...]` placeholder, `micro_compact` replacing older tool results >120 chars with placeholders, `find_safe_boundary`, and filename traversal sanitization); add unit tests in `tests/tools_check.py`.",
+      "status": "Done",
+      "done": true,
+      "depends": [],
+      "evidence": [
+        "`python3 tests/tools_check.py`",
+        "python3 tests/tools_check.py exit 0; 74 tests OK. Added src/tools/config.py, src/tools/compact.py, src/prompts/compact.md, compact prompt section. AC-001 defaults, AC-002 config override, AC-004 L3 persist, AC-005 L1 snip 50 with [snipped 11], AC-006 tool pair intact, AC-007 L2 placeholders, AC-008 noop, AC-011 safe boundary, AC-020 compact prompt override, AC-024 sanitized persist path."
+      ],
+      "acceptance_criteria": [
+        "AC-004",
+        "AC-007",
+        "AC-020",
+        "AC-011",
+        "AC-008",
+        "AC-024",
+        "AC-002",
+        "AC-001",
+        "AC-006",
+        "AC-005"
+      ]
+    },
+    {
+      "id": "T-002",
+      "header": "- [x] T-002 [US3] [US4] [US5] [US6] `src/application/query_engine.py`, `src/tools/handlers/agent.py`, `src/tools/registry.py`, `tests/query_engine_check.py` \u2014 register LOW `compact` tool in `src/tools/handlers/agent.py`; update `QueryEngine` to integrate the 4-layer compaction pipeline (`tool_result_budget` -> `snip_compact` -> `micro_compact` -> `compact_history` if over thresholds) before `provider.complete()`; implement `compact_history` writing `.cda/.transcripts/<session_id>-<utc_timestamp>.jsonl` with API key redaction, querying provider for summary using `load_prompt_section(\"compact\")` without tools, and setting `history` to `[ChatMessage(\"user\", \"<compacted-summary>\\n\" + summary + \"\\n</compacted-summary>\")] + recent_window` (boundary safe); implement emergency `reactive_compact` catching `ProviderError` with `prompt_too_long` / `context length` / HTTP 413 and retrying once; implement circuit breaker capping consecutive summarizer failures at 3; emit status events on compaction; handle `compact` tool invocation to trigger compaction and stop turn loop; ensure session JSON contains only compacted `messages` with no system roles; add tests in `tests/query_engine_check.py`.",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-001"
+      ],
+      "evidence": [
+        "`python3 tests/query_engine_check.py`",
+        "python3 tests/query_engine_check.py exit 0; 57 tests OK. QueryEngine L3-L1-L2-L4 pipeline, compact tool, reactive compact, circuit breaker, transcript snapshots. AC-009 auto-chars, AC-010 summary wrap, AC-012 session JSON, AC-015 compact tool, AC-016 auto_compact false, AC-017 reactive recover, AC-018 retry budget, AC-019 circuit breaker, AC-020 compact prompt override, AC-021 status events."
+      ],
+      "acceptance_criteria": [
+        "AC-022",
+        "AC-019",
+        "AC-020",
+        "AC-017",
+        "AC-016",
+        "AC-021",
+        "AC-015",
+        "AC-018",
+        "AC-009",
+        "AC-012",
+        "AC-010"
+      ]
+    },
+    {
+      "id": "T-003",
+      "header": "- [x] T-003 [US1] [US4] [US6] `src/presentation/cli.py`, `tests/cli_check.py`, `tests/terminal_ui_check.py` \u2014 update `src/presentation/cli.py` to load settings from `src.tools.config` `.cda/config.json` and ignore `.cda/ui-config.json`; intercept `/compact` in the REPL loop before `expand_slash_prompt` to trigger manual compaction on `engine` and notify user without calling `engine.turn(\"/compact\")` or reporting unknown skill; update `tests/cli_check.py` and `tests/terminal_ui_check.py` to use `.cda/config.json`; verify all unit test suites pass and Python compilation succeeds.",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-002"
+      ],
+      "evidence": [
+        "`python3 -m compileall -q src` && `python3 -m unittest discover -s tests -p '*_check.py'`",
+        "python3 -m compileall -q src exit 0; python3 -m unittest discover -s tests -p '*_check.py' exit 0; 187 tests OK. CLI /compact intercepted before skills; .cda/config.json hard cutover; ui-config.json ignored. AC-003, AC-013, AC-014, AC-023."
+      ],
+      "acceptance_criteria": [
+        "AC-014",
+        "AC-016",
+        "AC-018",
+        "AC-006",
+        "AC-020",
+        "AC-011",
+        "AC-015",
+        "AC-009",
+        "AC-022",
+        "AC-017",
+        "AC-008",
+        "AC-023",
+        "AC-012",
+        "AC-004",
+        "AC-019",
+        "AC-007",
+        "AC-003",
+        "AC-024",
+        "AC-021",
+        "AC-013",
+        "AC-002",
+        "AC-010",
+        "AC-001",
+        "AC-005"
+      ]
+    }
+  ],
+  "markdown_hash": "d96f0d4c5b1b67c35e40c4770e606212e6d8b8c1e2f7a21098cdacd4b5ea1ef8"
+}

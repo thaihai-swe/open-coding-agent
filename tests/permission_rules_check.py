@@ -116,6 +116,23 @@ class TestPermissionRuleWildcards(unittest.TestCase):
         self.assertEqual(permission_rules.match_rule("bash", {"command": "cd /tmp"}), "allow")
         self.assertIsNone(permission_rules.match_rule("bash", {"command": "echo ping"}))
 
+    def test_ensure_default_rules_writes_baseline_when_missing(self) -> None:
+        target = Path(".cda/.permission_rules/rules.json")
+        self.assertFalse(target.exists())
+        created = permission_rules.ensure_default_rules(Path.cwd())
+        self.assertEqual(created, Path.cwd() / target)
+        self.assertTrue(target.is_file())
+        rules = json.loads(target.read_text(encoding="utf-8"))
+        self.assertTrue(any(rule.get("pattern") == {"command": "*sudo*"} for rule in rules))
+        self.assertTrue(all(rule.get("decision") == "deny" for rule in rules))
+
+    def test_ensure_default_rules_does_not_overwrite_existing(self) -> None:
+        existing = [{"tool": "bash", "pattern": {"command": "echo ping"}, "decision": "allow"}]
+        self._write_rules(existing)
+        permission_rules.ensure_default_rules(Path.cwd())
+        rules = json.loads(Path(".cda/.permission_rules/rules.json").read_text(encoding="utf-8"))
+        self.assertEqual(rules, existing)
+
 
 if __name__ == "__main__":
     unittest.main()

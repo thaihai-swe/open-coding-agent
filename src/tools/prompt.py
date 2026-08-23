@@ -11,7 +11,7 @@ from .task_board import SYSTEM_MESSAGE as PLANNING_SYSTEM_MESSAGE
 INSTRUCTION_FILENAMES = ("AGENTS.md", "CLAUDE.md", "CLAUDE.local.md")
 MAX_FILE_CHARS = 4000
 MAX_TOTAL_INSTRUCTION_CHARS = 12000
-PROMPT_SECTIONS = ("identity", "planning", "security")
+PROMPT_SECTIONS = ("identity", "planning", "security", "compact")
 OVERRIDE_PROMPTS_DIR = Path(".cda") / "prompts"
 DEFAULT_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 FALLBACK_SECTIONS: dict[str, str] = {
@@ -23,6 +23,11 @@ FALLBACK_SECTIONS: dict[str, str] = {
         "- Dangerous shell commands and disk operations matching the deny list are blocked.\n"
         "- Operations targeting protected paths and sensitive configuration keys are blocked.\n"
         "- High-risk and medium-risk tool operations require explicit user authorization."
+    ),
+    "compact": (
+        "You are summarizing a conversation to free up context window space. "
+        "Create a structured summary of the conversation so far, preserving key goals, decisions, "
+        "modified files, errors and fixes, and remaining next steps."
     ),
 }
 

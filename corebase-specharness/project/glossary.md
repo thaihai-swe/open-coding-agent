@@ -33,6 +33,17 @@ Project-wide vocabulary from `/starter-init` (2026-08-22). Domain/product names 
 | prompt section | A named fragment of the system message that is always present or omitted based on real state (files exist, tools registered), not on keywords in the user turn | `5-system-prompt` |
 | instruction file | A project-cwd markdown file (`AGENTS.md`, `CLAUDE.md`, `CLAUDE.local.md`) whose text may be injected into the system message when present | `5-system-prompt` |
 | instruction section | On-demand system-prompt section that concatenates discovered instruction files, with per-file and total character caps and hash dedup | `5-system-prompt` |
+| context compaction | Multi-layer history compression reducing conversation payload size through budget trimming, snippet boundaries, micro-placeholders, and LLM summarization | `6-compact-memory` |
+| `snip_compact` | L1 compaction trimming the middle of history when message count exceeds `max_messages`, preserving head, tail, and tool-call/result boundaries | `6-compact-memory` |
+| `micro_compact` | L2 compaction replacing older tool results (>120 chars) with short placeholders while keeping the most recent `keep_recent_tool_results` results intact | `6-compact-memory` |
+| `tool_result_budget` | L3 compaction persisting oversized tool results to `.cda/task_outputs/tool-results/` with in-history preview markers | `6-compact-memory` |
+| `compact_history` | L4 compaction producing an LLM-generated structured summary of older turns and replacing them in history while preserving a recent window | `6-compact-memory` |
+| `reactive_compact` | Emergency fallback compaction triggered when provider returns context length / prompt-too-long errors | `6-compact-memory` |
+| compaction boundary | Safety invariant ensuring an assistant `tool_calls` message is never severed from its corresponding `tool_result` messages | `6-compact-memory` |
+| `compact` tool | LOW Agent tool allowing the model to voluntarily trigger context compaction | `6-compact-memory` |
+| `/compact` command | REPL slash command allowing the user to manually trigger full L4 context compaction | `6-compact-memory` |
+| `.cda/config.json` | Unified project configuration file storing UI preferences and context compaction thresholds | `6-compact-memory` |
+| `.cda/.transcripts/` | Directory storing full pre-compaction JSONL snapshots before L4 summarization | `6-compact-memory` |
 
 ## Technical Terms
 
@@ -49,6 +60,9 @@ Project-wide vocabulary from `/starter-init` (2026-08-22). Domain/product names 
 | `bypass_permissions` | Kwarg that skips the HIGH-without-approve `check_permission` branch after this call is allowed on the turn path; does not override hard deny | `src/application/query_engine.py`, `src/tools/permissions.py` |
 | `.cda/.permission_rules/rules.json` | Project-level JSON array of `tool`, `pattern`, and `decision` (`allow` or `deny`); source of truth for always-allow / always-deny | `2-permission-gate` |
 | `.cda/.todos/<session_id>.json` | Per-session task board: JSON array of `{id, content, status}` | `3-to-do-management` |
+| `.cda/config.json` | Project-local JSON object for UI and compaction settings; replaces `.cda/ui-config.json` | `6-compact-memory` |
+| `.cda/task_outputs/tool-results/` | Workspace-bound files holding full oversized tool-result bodies after L3 persist | `6-compact-memory` |
+| `.cda/.transcripts/` | JSONL snapshots of full history taken immediately before L4 / reactive compact | `6-compact-memory` |
 | Composition root | `src/presentation/cli.py` wires provider, store, UI, engine | CLI |
 
 ## Abbreviations

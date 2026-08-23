@@ -1,18 +1,29 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
+from dataclasses import asdict, replace
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from ..domain.errors import ProviderError
 from ..domain.models import ChatMessage, ProviderResponse, ToolCall, ToolResult
 from ..domain.provider import Provider
-from ..infrastructure.session_store import SessionStore
+from ..infrastructure.session_store import SessionStore, _redact
 from ..tools import invoke, registry
 from ..tools import permission_rules
+from ..tools.compact import (
+    estimate_history_chars,
+    find_safe_boundary,
+    micro_compact,
+    snip_compact,
+    tool_result_budget,
+)
+from ..tools.config import load_config, resolve_compact_config
 from ..tools.permissions import AuthorizeDecision, hard_deny_reason
-from ..tools.prompt import assemble_system_prompt
+from ..tools.prompt import assemble_system_prompt, load_prompt_section
 from ..tools.task_board import PLANNING_MUTATION_NAMES, PLANNING_TOOL_NAMES, bind_session, reset_session
 from ..tools.types import Risk
 
@@ -20,7 +31,15 @@ Authorize = Callable[[str, dict[str, Any]], AuthorizeDecision]
 
 
 class QueryEngine:
-    def __init__(self, provider: Provider, session: SessionStore, session_id: str, authorize: Authorize, on_event: Callable[[dict[str, Any]], None] | None = None, max_turns: int = 8) -> None:
+    def __init__(
+        self,
+        provider: Provider,
+        session: SessionStore,
+        session_id: str,
+        authorize: Authorize,
+        on_event: Callable[[dict[str, Any]], None] | None = None,
+        max_turns: int = 8,
+    ) -> None:
         self.provider = provider
         self.session = session
         self.session_id = session_id
@@ -29,6 +48,8 @@ class QueryEngine:
         self.max_turns = max_turns
         self.history = session.load(session_id) if session_id in session.list() else []
         self._rounds_without_planning = 0
+        self._consecutive_compact_failures = 0
+        self.config = resolve_compact_config(load_config())
 
     def turn(self, prompt: str) -> ProviderResponse:
         token = bind_session(self.session_id)
@@ -37,27 +58,142 @@ class QueryEngine:
         finally:
             reset_session(token)
 
+    def manual_compact(self) -> bool:
+        return self.compact_history()
+
+    def compact_history(self, keep_recent: int | None = None) -> bool:
+        if self._consecutive_compact_failures >= self.config.get("compact_fail_retries", 3):
+            return False
+        keep = self.config.get("keep_recent", 4) if keep_recent is None else keep_recent
+        tail_start = max(0, len(self.history) - keep)
+        tail_start = find_safe_boundary(self.history, tail_start)
+        if tail_start <= 0:
+            return False
+        self.on_event({"type": "status", "message": "compacting context"})
+        self._write_transcript_snapshot()
+        summary = self._summarize_messages(self.history[:tail_start])
+        if not summary:
+            self._consecutive_compact_failures += 1
+            return False
+        self._consecutive_compact_failures = 0
+        summary_msg = ChatMessage("user", f"<compacted-summary>\n{summary}\n</compacted-summary>")
+        self.history = [summary_msg, *self.history[tail_start:]]
+        self._save()
+        self.on_event({"type": "status", "message": "context compacted"})
+        return True
+
+    def reactive_compact(self, tail_count: int = 5) -> bool:
+        if self._consecutive_compact_failures >= self.config.get("compact_fail_retries", 3):
+            return False
+        tail_start = max(0, len(self.history) - tail_count)
+        tail_start = find_safe_boundary(self.history, tail_start)
+        if tail_start <= 0:
+            return False
+        self.on_event({"type": "status", "message": "reactive compacting context"})
+        self._write_transcript_snapshot()
+        summary = self._summarize_messages(self.history[:tail_start])
+        if not summary:
+            self._consecutive_compact_failures += 1
+            return False
+        self._consecutive_compact_failures = 0
+        summary_msg = ChatMessage("user", f"<compacted-summary>\n{summary}\n</compacted-summary>")
+        self.history = [summary_msg, *self.history[tail_start:]]
+        self._save()
+        self.on_event({"type": "status", "message": "context compacted"})
+        return True
+
+    def _summarize_messages(self, messages_to_summarize: list[ChatMessage]) -> str | None:
+        compact_prompt = load_prompt_section("compact")
+        prompt_msgs = [ChatMessage("system", compact_prompt), *messages_to_summarize]
+        try:
+            res = self.provider.complete(prompt_msgs, tools=[], stream=False)
+            if isinstance(res, ProviderResponse):
+                return res.message.content or None
+            collected = []
+            for delta in res:
+                if delta.content:
+                    collected.append(delta.content)
+            return "".join(collected).strip() or None
+        except Exception:
+            return None
+
+    def _write_transcript_snapshot(self) -> None:
+        transcripts_dir = Path(".cda/.transcripts")
+        try:
+            transcripts_dir.mkdir(parents=True, exist_ok=True)
+            ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+            path = transcripts_dir / f"{self.session_id}-{ts}.jsonl"
+            lines = [json.dumps(_redact(asdict(m)), ensure_ascii=False) for m in self.history]
+            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        except OSError:
+            pass
+
+    def _apply_pre_complete_compaction(self) -> None:
+        if not self.config.get("auto_compact", True):
+            return
+        self.history = tool_result_budget(
+            self.history,
+            max_bytes=self.config.get("tool_result_max_bytes", 200000),
+            preview_chars=self.config.get("persist_preview_chars", 2000),
+        )
+        self.history = snip_compact(
+            self.history,
+            max_messages=self.config.get("max_messages", 50),
+            keep_head=self.config.get("keep_head", 3),
+        )
+        self.history = micro_compact(
+            self.history,
+            keep_recent_results=self.config.get("keep_recent_tool_results", 3),
+        )
+        if (
+            len(self.history) > self.config.get("max_messages", 50)
+            or estimate_history_chars(self.history) > self.config.get("max_chars", 80000)
+        ):
+            self.compact_history()
+
     def _turn(self, prompt: str) -> ProviderResponse:
         self.history.append(ChatMessage("user", prompt))
         self._save()
         response: ProviderResponse | None = None
         turn_count = 0
+        reactive_retries_used = 0
+        max_reactive_retries = self.config.get("reactive_retries", 1)
+
         while turn_count < self.max_turns:
             if self._rounds_without_planning >= 3:
                 self.history.append(ChatMessage("user", "<reminder>Update your todos.</reminder>"))
                 self._rounds_without_planning = 0
                 self._save()
-            try:
-                completion = self.provider.complete(self._with_system(self.history), _tool_schemas(), stream=True)
-                if isinstance(completion, ProviderResponse):
-                    response = completion
-                    if response.message.content:
-                        self.on_event({"type": "text", "content": response.message.content})
-                else:
-                    response = self._collect_stream(completion)
-            except Exception as error:
-                self._save()
-                raise ProviderError(f"Provider completion failed: {error}") from error
+
+            self._apply_pre_complete_compaction()
+
+            while True:
+                try:
+                    completion = self.provider.complete(self._with_system(self.history), _tool_schemas(), stream=True)
+                    if isinstance(completion, ProviderResponse):
+                        response = completion
+                        if response.message.content:
+                            self.on_event({"type": "text", "content": response.message.content})
+                    else:
+                        response = self._collect_stream(completion)
+                    break
+                except ProviderError as error:
+                    err_lower = str(error).lower()
+                    if (
+                        "prompt_too_long" in err_lower
+                        or "context length" in err_lower
+                        or "413" in err_lower
+                    ):
+                        if reactive_retries_used < max_reactive_retries:
+                            reactive_retries_used += 1
+                            if self.reactive_compact(tail_count=5):
+                                continue
+                    self._save()
+                    raise
+                except Exception as error:
+                    self._save()
+                    raise ProviderError(f"Provider completion failed: {error}") from error
+
             turn_count += 1
             self.history.append(response.message)
             self._save()
@@ -67,6 +203,8 @@ class QueryEngine:
             hard_denied, mutated = self._run_batch(response.message.tool_calls)
             self._rounds_without_planning = 0 if mutated else self._rounds_without_planning + 1
             if hard_denied:
+                return replace(response, termination_reason="completed")
+            if any(call.name == "compact" for call in response.message.tool_calls):
                 return replace(response, termination_reason="completed")
         return replace(response, termination_reason="max_turns_reached")
 
@@ -149,6 +287,8 @@ class QueryEngine:
             self.history.append(ChatMessage("tool", tool_result=result))
             if not result.is_error and call.name in PLANNING_MUTATION_NAMES:
                 mutated = True
+            if not result.is_error and call.name == "compact":
+                self.compact_history()
         self._save()
         return hard_denied, mutated
 

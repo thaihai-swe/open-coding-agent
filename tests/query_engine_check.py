@@ -1407,6 +1407,204 @@ class TestPlanningEngine(unittest.TestCase):
         self.assertNotIn("You are a coding agent.", first.content)
 
 
+class TestCompactionEngine(unittest.TestCase):
+    def setUp(self) -> None:
+        self._cwd = os.getcwd()
+        self._temp = tempfile.TemporaryDirectory()
+        os.chdir(self._temp.name)
+
+    def tearDown(self) -> None:
+        os.chdir(self._cwd)
+        self._temp.cleanup()
+
+    def _engine(self, provider, session_id: str = "s1", on_event=None, config: dict | None = None) -> QueryEngine:
+        store = SessionStore(Path(".cda/.sessions"))
+        engine = QueryEngine(
+            provider,
+            store,
+            session_id,
+            authorize=lambda name, args: _once(True),
+            on_event=on_event or (lambda event: None),
+        )
+        if config is not None:
+            engine.config.update(config)
+        return engine
+
+    def test_ac009_ac010_auto_compact_triggered_by_chars(self) -> None:
+        # AC-009, AC-010 / REQ-003, REQ-004, REQ-008 / T-002
+        long_content = "Z" * 500
+        provider = FakeProvider([
+            ProviderResponse(ChatMessage("assistant", "SUM-BODY")),  # summarizer response
+            ProviderResponse(ChatMessage("assistant", "Final text after compact")),
+        ])
+        events = []
+        engine = self._engine(provider, on_event=events.append, config={"max_chars": 300, "keep_recent": 2})
+        engine.history = [
+            ChatMessage("user", long_content),
+            ChatMessage("assistant", "short"),
+            ChatMessage("user", "recent1"),
+            ChatMessage("assistant", "recent2"),
+        ]
+        res = engine.turn("new turn")
+        # Summarizer was called with tools=[]
+        self.assertEqual(len(provider.calls), 2)
+        # Summarizer request has no tools
+        # History[0] now contains <compacted-summary>
+        self.assertEqual(engine.history[0].role, "user")
+        self.assertIn("<compacted-summary>", engine.history[0].content)
+        self.assertIn("SUM-BODY", engine.history[0].content)
+        self.assertIn("</compacted-summary>", engine.history[0].content)
+        # Transcripts directory exists
+        transcripts = list(Path(".cda/.transcripts").glob("*.jsonl"))
+        self.assertTrue(transcripts)
+        # AC-021: status event emitted with compact
+        status_events = [e for e in events if e.get("type") == "status" and "compact" in e.get("message", "").lower()]
+        self.assertTrue(status_events)
+
+    def test_ac012_session_json_contains_compacted_messages_without_system(self) -> None:
+        # AC-012 / REQ-008, REQ-015 / T-002
+        provider = FakeProvider([
+            ProviderResponse(ChatMessage("assistant", "SUMMARY")),
+            ProviderResponse(ChatMessage("assistant", "reply")),
+        ])
+        engine = self._engine(provider, config={"max_chars": 100, "keep_recent": 1})
+        engine.history = [
+            ChatMessage("user", "A" * 200),
+            ChatMessage("assistant", "B" * 200),
+        ]
+        engine.turn("hello")
+        session_file = Path(".cda/.sessions/s1.json")
+        self.assertTrue(session_file.is_file())
+        data = json.loads(session_file.read_text(encoding="utf-8"))
+        self.assertEqual(list(data.keys()), ["messages"])
+        self.assertFalse(any(m.get("role") == "system" for m in data["messages"]))
+        self.assertEqual(data["messages"][0]["role"], "user")
+        self.assertIn("<compacted-summary>", data["messages"][0]["content"])
+
+    def test_ac015_compact_tool_invocation_runs_compact_and_ends_turn(self) -> None:
+        # AC-015 / REQ-010 / T-002
+        provider = FakeProvider([
+            ProviderResponse(ChatMessage("assistant", tool_calls=(ToolCall("call-c", "compact", {}),))),
+            ProviderResponse(ChatMessage("assistant", "SUMMARY-TEXT")),
+        ])
+        engine = self._engine(provider, config={"keep_recent": 1})
+        engine.history = [
+            ChatMessage("user", "msg1"),
+            ChatMessage("assistant", "msg2"),
+        ]
+        res = engine.turn("please compact")
+        self.assertEqual(res.termination_reason, "completed")
+        self.assertEqual(engine.history[0].role, "user")
+        self.assertIn("<compacted-summary>", engine.history[0].content)
+
+    def test_ac016_auto_compact_false_disables_auto_compaction(self) -> None:
+        # AC-016 / REQ-011 / T-002
+        provider = FakeProvider([
+            ProviderResponse(ChatMessage("assistant", "direct reply")),
+        ])
+        engine = self._engine(provider, config={"auto_compact": False, "max_chars": 50})
+        engine.history = [ChatMessage("user", "X" * 500)]
+        res = engine.turn("hi")
+        self.assertEqual(len(provider.calls), 1)
+        self.assertNotIn("<compacted-summary>", str(engine.history[0].content))
+
+    def test_ac017_reactive_compact_recovers_from_prompt_too_long(self) -> None:
+        # AC-017 / REQ-012 / T-002
+        class OverflowThenSucceedProvider:
+            def __init__(self) -> None:
+                self.calls = []
+                self.attempt = 0
+
+            def complete(self, history, tools, stream=False):
+                self.calls.append(list(history))
+                self.attempt += 1
+                if self.attempt == 1:
+                    raise ProviderError("Provider HTTP 413: prompt_too_long context length exceeded")
+                if self.attempt == 2:
+                    # Summarizer call during reactive compact
+                    return ProviderResponse(ChatMessage("assistant", "REACTIVE-SUMMARY"))
+                return ProviderResponse(ChatMessage("assistant", "Success after reactive compact"))
+
+        provider = OverflowThenSucceedProvider()
+        engine = self._engine(provider, config={"reactive_retries": 1})
+        engine.history = [
+            ChatMessage("user", "old1"),
+            ChatMessage("assistant", "old2"),
+            ChatMessage("user", "old3"),
+            ChatMessage("assistant", "old4"),
+            ChatMessage("user", "old5"),
+            ChatMessage("assistant", "old6"),
+        ]
+        res = engine.turn("turn causing overflow")
+        self.assertEqual(res.message.content, "Success after reactive compact")
+        self.assertEqual(engine.history[0].role, "user")
+        self.assertIn("REACTIVE-SUMMARY", engine.history[0].content)
+
+    def test_ac018_reactive_compact_propagates_when_retries_exhausted(self) -> None:
+        # AC-018 / REQ-012 / T-002
+        class AlwaysOverflowProvider:
+            def __init__(self) -> None:
+                self.calls = []
+
+            def complete(self, history, tools, stream=False):
+                self.calls.append(list(history))
+                if len(tools) == 0:
+                    return ProviderResponse(ChatMessage("assistant", "SUMMARY"))
+                raise ProviderError("HTTP 413 prompt_too_long")
+
+        provider = AlwaysOverflowProvider()
+        engine = self._engine(provider, config={"reactive_retries": 1})
+        engine.history = [ChatMessage("user", f"m{i}") for i in range(10)]
+        with self.assertRaises(ProviderError):
+            engine.turn("overflow")
+
+    def test_ac019_circuit_breaker_stops_after_consecutive_summarizer_failures(self) -> None:
+        # AC-019 / REQ-013 / T-002
+        class FailingSummarizerProvider:
+            def __init__(self) -> None:
+                self.calls = []
+
+            def complete(self, history, tools, stream=False):
+                self.calls.append(list(history))
+                if len(tools) == 0:
+                    raise ProviderError("Summarizer down")
+                return ProviderResponse(ChatMessage("assistant", "normal reply"))
+
+        provider = FailingSummarizerProvider()
+        engine = self._engine(provider, config={"max_chars": 50, "compact_fail_retries": 3, "keep_recent": 1})
+        engine.history = [ChatMessage("user", "Z" * 200)]
+        # First turn triggers compact attempt (failure 1)
+        engine.turn("t1")
+        self.assertEqual(engine._consecutive_compact_failures, 1)
+        # Second turn triggers compact attempt (failure 2)
+        engine.turn("t2")
+        self.assertEqual(engine._consecutive_compact_failures, 2)
+        # Third turn triggers compact attempt (failure 3)
+        engine.turn("t3")
+        self.assertEqual(engine._consecutive_compact_failures, 3)
+        # Fourth turn: circuit breaker prevents summarizer call
+        calls_before = len([c for c in provider.calls if len(c) > 0])
+        engine.turn("t4")
+        # History is not wiped with empty summary
+        self.assertFalse(any("<compacted-summary>" in (m.content or "") for m in engine.history))
+
+    def test_ac020_cda_compact_prompt_override_used_in_summarizer(self) -> None:
+        # AC-020 / REQ-014 / T-002
+        override_dir = Path(".cda") / "prompts"
+        override_dir.mkdir(parents=True)
+        (override_dir / "compact.md").write_text("CUSTOM-COMPACT-INSTRUCTIONS", encoding="utf-8")
+        provider = FakeProvider([
+            ProviderResponse(ChatMessage("assistant", "SUM")),
+            ProviderResponse(ChatMessage("assistant", "ok")),
+        ])
+        engine = self._engine(provider, config={"max_chars": 50, "keep_recent": 1})
+        engine.history = [ChatMessage("user", "Y" * 200)]
+        engine.turn("compact me")
+        summarizer_call = provider.calls[0]
+        self.assertEqual(summarizer_call[0].role, "system")
+        self.assertIn("CUSTOM-COMPACT-INSTRUCTIONS", summarizer_call[0].content)
+
+
 if __name__ == "__main__":
     unittest.main()
 

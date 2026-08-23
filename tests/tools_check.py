@@ -782,6 +782,196 @@ class TestPromptAssembler(unittest.TestCase):
         self.assertNotIn("You are a coding agent.", second)
 
 
+class TestCompactConfig(unittest.TestCase):
+    def setUp(self) -> None:
+        self._cwd = os.getcwd()
+        self._temp = tempfile.TemporaryDirectory()
+        os.chdir(self._temp.name)
+
+    def tearDown(self) -> None:
+        os.chdir(self._cwd)
+        self._temp.cleanup()
+
+    def test_ac001_missing_config_uses_defaults(self) -> None:
+        from src.tools.config import load_config, resolve_compact_config, resolve_show_tool_results
+
+        self.assertEqual(load_config(Path.cwd()), {})
+        compact = resolve_compact_config(load_config(Path.cwd()))
+        self.assertTrue(resolve_show_tool_results(None, Path.cwd()))
+        self.assertTrue(compact["auto_compact"])
+        self.assertEqual(compact["max_messages"], 50)
+        self.assertEqual(compact["max_chars"], 80000)
+        self.assertEqual(compact["keep_head"], 3)
+        self.assertEqual(compact["keep_recent"], 4)
+        self.assertEqual(compact["keep_recent_tool_results"], 3)
+        self.assertEqual(compact["tool_result_max_bytes"], 200000)
+        self.assertEqual(compact["persist_preview_chars"], 2000)
+        self.assertEqual(compact["reactive_retries"], 1)
+        self.assertEqual(compact["compact_fail_retries"], 3)
+
+    def test_ac002_config_json_overrides_selected_keys(self) -> None:
+        from src.tools.config import load_config, resolve_compact_config, resolve_show_tool_results
+
+        Path(".cda").mkdir()
+        Path(".cda/config.json").write_text(
+            json.dumps({"show_tool_results": False, "compact": {"max_messages": 10}}),
+            encoding="utf-8",
+        )
+        cfg = load_config(Path.cwd())
+        compact = resolve_compact_config(cfg)
+        self.assertFalse(resolve_show_tool_results(None, Path.cwd()))
+        self.assertEqual(compact["max_messages"], 10)
+        self.assertEqual(compact["max_chars"], 80000)
+
+    def test_ensure_default_config_writes_best_defaults_when_missing(self) -> None:
+        from src.tools.config import DEFAULT_CONFIG, DEFAULT_COMPACT_CONFIG, ensure_default_config, load_config
+
+        target = Path.cwd() / ".cda" / "config.json"
+        self.assertFalse(target.exists())
+        created = ensure_default_config(Path.cwd())
+        self.assertEqual(created, target)
+        self.assertTrue(target.is_file())
+        cfg = load_config(Path.cwd())
+        self.assertEqual(cfg["show_tool_results"], DEFAULT_CONFIG["show_tool_results"])
+        self.assertEqual(cfg["compact"], DEFAULT_COMPACT_CONFIG)
+
+    def test_ensure_default_config_does_not_overwrite_existing(self) -> None:
+        from src.tools.config import ensure_default_config, load_config
+
+        Path(".cda").mkdir()
+        Path(".cda/config.json").write_text(
+            json.dumps({"show_tool_results": False, "compact": {"max_messages": 10}}),
+            encoding="utf-8",
+        )
+        ensure_default_config(Path.cwd())
+        cfg = load_config(Path.cwd())
+        self.assertFalse(cfg["show_tool_results"])
+        self.assertEqual(cfg["compact"]["max_messages"], 10)
+
+    def test_ac020_compact_prompt_bundled_and_override(self) -> None:
+        bundled = load_prompt_section("compact", Path.cwd())
+        self.assertTrue(bundled)
+        override_dir = Path(".cda") / "prompts"
+        override_dir.mkdir(parents=True)
+        (override_dir / "compact.md").write_text("OVERRIDE-COMPACT-PROMPT", encoding="utf-8")
+        self.assertEqual(load_prompt_section("compact", Path.cwd()), "OVERRIDE-COMPACT-PROMPT")
+
+
+class TestCompactTransformers(unittest.TestCase):
+    def setUp(self) -> None:
+        self._cwd = os.getcwd()
+        self._temp = tempfile.TemporaryDirectory()
+        os.chdir(self._temp.name)
+
+    def tearDown(self) -> None:
+        os.chdir(self._cwd)
+        self._temp.cleanup()
+
+    def test_ac004_tool_result_budget_persists_large_outputs(self) -> None:
+        from src.domain.models import ChatMessage, ToolResult
+        from src.tools.compact import tool_result_budget
+
+        huge = "X" * 250000
+        history = [
+            ChatMessage("user", "read it"),
+            ChatMessage("assistant", "ok"),
+            ChatMessage("tool", tool_result=ToolResult("call-1", huge)),
+        ]
+        out = tool_result_budget(history, max_bytes=200000, preview_chars=2000, persist_dir=Path(".cda/task_outputs/tool-results"))
+        files = list(Path(".cda/task_outputs/tool-results").glob("*"))
+        self.assertTrue(files)
+        body = out[-1].tool_result.content
+        self.assertIn("<persisted-output", body)
+        preview = body.split(">", 1)[1].split("</persisted-output>", 1)[0].strip()
+        self.assertLessEqual(len(preview), 2000)
+
+    def test_ac005_snip_compact_keeps_head_and_placeholder(self) -> None:
+        from src.domain.models import ChatMessage
+        from src.tools.compact import snip_compact
+
+        history = [ChatMessage("user", f"m{i}") for i in range(60)]
+        out = snip_compact(history, max_messages=50, keep_head=3)
+        self.assertEqual(len(out), 50)
+        self.assertEqual([m.content for m in out[:3]], ["m0", "m1", "m2"])
+        self.assertEqual(out[3].role, "user")
+        self.assertEqual(out[3].content, "[snipped 11 messages from conversation middle]")
+
+    def test_ac006_snip_does_not_split_tool_pair(self) -> None:
+        from src.domain.models import ChatMessage, ToolCall, ToolResult
+        from src.tools.compact import snip_compact
+
+        history = [ChatMessage("user", f"m{i}") for i in range(48)]
+        history.append(ChatMessage("assistant", None, (ToolCall("c1", "bash", {"command": "echo"}),)))
+        history.append(ChatMessage("tool", tool_result=ToolResult("c1", "ok")))
+        out = snip_compact(history, max_messages=50, keep_head=3)
+        roles = [(m.role, bool(m.tool_calls), m.tool_result is not None) for m in out]
+        for i, (role, has_calls, has_result) in enumerate(roles):
+            if has_result:
+                self.assertFalse(i == 0)
+                prev = roles[i - 1]
+                if prev[1]:
+                    self.assertTrue(True)
+        assistant_indexes = [i for i, item in enumerate(out) if item.tool_calls]
+        for index in assistant_indexes:
+            self.assertLess(index + 1, len(out))
+            self.assertIsNotNone(out[index + 1].tool_result)
+
+    def test_ac007_micro_compact_placeholders_old_results(self) -> None:
+        from src.domain.models import ChatMessage, ToolResult
+        from src.tools.compact import TOOL_RESULT_PLACEHOLDER, micro_compact
+
+        history = []
+        for i in range(5):
+            history.append(ChatMessage("tool", tool_result=ToolResult(f"c{i}", "Y" * 200)))
+        out = micro_compact(history, keep_recent_results=3)
+        self.assertEqual(out[0].tool_result.content, TOOL_RESULT_PLACEHOLDER)
+        self.assertEqual(out[1].tool_result.content, TOOL_RESULT_PLACEHOLDER)
+        self.assertEqual(out[2].tool_result.content, "Y" * 200)
+        self.assertEqual(out[3].tool_result.content, "Y" * 200)
+        self.assertEqual(out[4].tool_result.content, "Y" * 200)
+
+    def test_ac008_cheap_layers_noop_under_thresholds(self) -> None:
+        from src.domain.models import ChatMessage, ToolResult
+        from src.tools.compact import micro_compact, snip_compact, tool_result_budget
+
+        history = [
+            ChatMessage("user", "hi"),
+            ChatMessage("assistant", "ok"),
+            ChatMessage("tool", tool_result=ToolResult("c1", "short")),
+        ]
+        self.assertEqual(tool_result_budget(history, max_bytes=200000), history)
+        self.assertEqual(snip_compact(history, max_messages=50), history)
+        self.assertEqual(micro_compact(history, keep_recent_results=3), history)
+
+    def test_ac011_safe_boundary_slides_off_orphaned_tool_result(self) -> None:
+        from src.domain.models import ChatMessage, ToolCall, ToolResult
+        from src.tools.compact import find_safe_boundary
+
+        history = [
+            ChatMessage("user", "do"),
+            ChatMessage("assistant", None, (ToolCall("c1", "bash", {"command": "echo"}),)),
+            ChatMessage("tool", tool_result=ToolResult("c1", "ok")),
+            ChatMessage("user", "next"),
+        ]
+        self.assertEqual(find_safe_boundary(history, 2), 1)
+
+    def test_ac024_persist_sanitizes_traversal_call_id(self) -> None:
+        from src.domain.models import ChatMessage, ToolResult
+        from src.tools.compact import sanitize_filename, tool_result_budget
+
+        self.assertNotIn("..", sanitize_filename("../etc/passwd"))
+        self.assertNotIn("/", sanitize_filename("a/b/c"))
+        huge = "Z" * 250000
+        history = [ChatMessage("tool", tool_result=ToolResult("../evil/id", huge))]
+        persist = Path(".cda/task_outputs/tool-results")
+        tool_result_budget(history, max_bytes=200000, persist_dir=persist)
+        written = list(persist.glob("*"))
+        self.assertTrue(written)
+        for path in written:
+            self.assertEqual(path.parent.resolve(), persist.resolve())
+            self.assertNotIn("..", path.name)
+
+
 if __name__ == "__main__":
     unittest.main()
 

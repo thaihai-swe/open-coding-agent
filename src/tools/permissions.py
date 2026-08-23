@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
+from . import permission_rules
 from .registry import Tool
-from .types import ConfigAction, DENY_LIST, PROTECTED_KEYS, PROTECTED_PATHS, Risk
+from .types import Risk
 
 _SCHEMA_TYPES = {"string": str, "integer": int, "boolean": bool}
 
@@ -66,33 +67,14 @@ class AuthorizeDecision:
         )
 
 
-def _matches_any_pattern(value: Any, patterns: tuple[str, ...]) -> bool:
-    text = str(value or "")
-    return any(pat in text for pat in patterns)
-
-
 def hard_deny_reason(tool: Tool, kwargs: dict[str, Any]) -> str | None:
-    if tool.name in ("bash", "powershell"):
-        command = str(kwargs.get("command") or "")
-        for pattern in DENY_LIST:
-            if pattern in command:
-                return f"Blocked: {pattern}"
-
-    if tool.name == "config":
-        if kwargs.get("action") == ConfigAction.GET:
-            return None
-        key = kwargs.get("key")
-        if key in PROTECTED_KEYS:
-            return f"Protected key blocked: {key}"
-        if key and _matches_any_pattern(key, PROTECTED_PATHS):
-            return f"Protected path blocked: {key}"
+    rule = permission_rules.find_hard_deny_rule(tool.name, kwargs)
+    if rule is None:
         return None
-
-    if tool.risk_level != Risk.LOW:
-        path = kwargs.get("file_path") or kwargs.get("key")
-        if path and _matches_any_pattern(path, PROTECTED_PATHS):
-            return f"Protected path blocked: {path}"
-    return None
+    message = rule.get("message")
+    if isinstance(message, str) and message:
+        return message
+    return "Blocked: denied by rule"
 
 
 def check_permission(tool: Tool, kwargs: dict[str, Any]) -> None:

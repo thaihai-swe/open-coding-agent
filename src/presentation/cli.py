@@ -1,27 +1,17 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 import traceback
-from pathlib import Path
 
 from ..application.query_engine import QueryEngine
 from ..domain.errors import ProviderError
 from ..infrastructure.providers import OpenAIProvider
 from ..infrastructure.session_store import SessionStore
+from ..tools.config import ensure_default_config, resolve_show_tool_results
+from ..tools.permission_rules import ensure_default_rules
 from ..tools.skills import expand_slash_prompt
 from .terminal_ui import TerminalUI
-
-_UI_CONFIG_PATH = Path(".cda/ui-config.json")
-
-
-def _load_ui_config() -> dict[str, object]:
-    try:
-        data = json.loads(_UI_CONFIG_PATH.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return data if isinstance(data, dict) else {}
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -34,16 +24,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _resolve_show_tool_results(cli_value: bool | None) -> bool:
-    if cli_value is not None:
-        return cli_value
-    config = _load_ui_config()
-    value = config.get("show_tool_results")
-    return bool(value) if isinstance(value, bool) else True
-
-
 def run(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    ensure_default_config()
+    ensure_default_rules()
     try:
         provider = OpenAIProvider()
     except ProviderError as error:
@@ -53,7 +37,7 @@ def run(argv: list[str] | None = None) -> int:
         return 2
     store = SessionStore()
     session_id = args.session or store.create()
-    show_tool_results = _resolve_show_tool_results(args.show_tool_results)
+    show_tool_results = resolve_show_tool_results(args.show_tool_results)
     ui = TerminalUI(json_mode=args.json_mode, show_tool_results=show_tool_results)
     engine = QueryEngine(provider, store, session_id, ui.authorize, ui.event)
     print(f"Session: {session_id}", file=sys.stderr)
@@ -63,6 +47,13 @@ def run(argv: list[str] | None = None) -> int:
             prompt = ui.prompt()
             if not prompt:
                 return 0
+            if prompt == "/compact" or prompt.startswith("/compact "):
+                compacted = engine.manual_compact()
+                if compacted:
+                    ui.event({"type": "status", "message": "Context compacted."})
+                else:
+                    ui.event({"type": "status", "message": "Nothing to compact or compaction limit reached."})
+                continue
             if prompt.startswith("/"):
                 expanded, err = expand_slash_prompt(prompt)
                 if err:

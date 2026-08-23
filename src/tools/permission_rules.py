@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 _RULES_PATH = Path(".cda/.permission_rules/rules.json")
+_DEFAULT_RULES_PATH = Path(__file__).resolve().parent / "default_permission_rules.json"
 _VALID_DECISIONS = frozenset({"allow", "deny"})
 
 _PRIMARY_FIELDS: dict[str, tuple[str, ...]] = {
@@ -20,8 +21,28 @@ _PRIMARY_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 
-def _rules_path() -> Path:
-    return Path.cwd() / _RULES_PATH
+def load_default_rules() -> list[dict[str, Any]]:
+    try:
+        data = json.loads(_DEFAULT_RULES_PATH.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def ensure_default_rules(cwd: Path | str | None = None) -> Path:
+    root = Path.cwd() if cwd is None else Path(cwd)
+    target = root / _RULES_PATH
+    if target.is_file():
+        return target
+    target.parent.mkdir(parents=True, exist_ok=True)
+    defaults = load_default_rules()
+    target.write_text(json.dumps(defaults, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return target
+
+
+def _rules_path(cwd: Path | str | None = None) -> Path:
+    root = Path.cwd() if cwd is None else Path(cwd)
+    return root / _RULES_PATH
 
 
 def primary_pattern(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -62,8 +83,8 @@ def _pattern_matches(rule_pattern: dict[str, Any], call_pattern: dict[str, Any])
     return all(_field_matches(rule_pattern[key], call_pattern[key]) for key in rule_pattern)
 
 
-def load_rules() -> list[dict[str, Any]]:
-    path = _rules_path()
+def load_rules(cwd: Path | str | None = None) -> list[dict[str, Any]]:
+    path = _rules_path(cwd)
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -73,13 +94,27 @@ def load_rules() -> list[dict[str, Any]]:
     return [entry for entry in data if _is_valid_rule(entry)]
 
 
-def match_rule(name: str, arguments: dict[str, Any]) -> str | None:
+def match_rule(name: str, arguments: dict[str, Any], cwd: Path | str | None = None) -> str | None:
     pattern = primary_pattern(name, arguments)
     decision = None
-    for entry in load_rules():
+    for entry in load_rules(cwd):
         if entry["tool"] == name and _pattern_matches(entry["pattern"], pattern):
             decision = entry["decision"]
     return decision
+
+
+def find_hard_deny_rule(name: str, arguments: dict[str, Any], cwd: Path | str | None = None) -> dict[str, Any] | None:
+    pattern = primary_pattern(name, arguments)
+    for entry in (*load_default_rules(), *load_rules(cwd)):
+        if (
+            entry.get("tool") == name
+            and entry.get("decision") == "deny"
+            and entry.get("hard") is True
+            and isinstance(entry.get("pattern"), dict)
+            and _pattern_matches(entry["pattern"], pattern)
+        ):
+            return entry
+    return None
 
 
 def _wildcard_value(key: str, value: Any) -> Any:
@@ -122,15 +157,17 @@ def upsert_rule(
     arguments: dict[str, Any],
     decision: str,
     pattern: dict[str, Any] | None = None,
+    cwd: Path | str | None = None,
 ) -> None:
     target = pattern if pattern is not None else primary_pattern(name, arguments)
-    rules = load_rules()
+    rules = load_rules(cwd)
     for index in range(len(rules) - 1, -1, -1):
         if rules[index]["tool"] == name and rules[index]["pattern"] == target:
             rules[index] = {"tool": name, "pattern": target, "decision": decision}
             break
     else:
         rules.append({"tool": name, "pattern": target, "decision": decision})
-    path = _rules_path()
+    path = _rules_path(cwd)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(rules, ensure_ascii=False, indent=2), encoding="utf-8")
+    path.write_text(json.dumps(rules, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+

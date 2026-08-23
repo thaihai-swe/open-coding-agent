@@ -1,0 +1,219 @@
+[
+  {
+    "tool": "bash",
+    "pattern": {"command": "*sudo*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: sudo"
+  },
+  {
+    "tool": "bash",
+    "pattern": {"command": "*rm -rf /*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: rm -rf /"
+  },
+  {
+    "tool": "bash",
+    "pattern": {"command": "*shutdown*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: shutdown"
+  },
+  {
+    "tool": "bash",
+    "pattern": {"command": "*reboot*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: reboot"
+  },
+  {
+    "tool": "bash",
+    "pattern": {"command": "*mkfs*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: mkfs"
+  },
+  {
+    "tool": "bash",
+    "pattern": {"command": "*dd if=*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: dd if="
+  },
+  {
+    "tool": "bash",
+    "pattern": {"command": "*> /dev/sda*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: > /dev/sda"
+  },
+  {
+    "tool": "powershell",
+    "pattern": {"command": "*sudo*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: sudo"
+  },
+  {
+    "tool": "powershell",
+    "pattern": {"command": "*rm -rf /*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: rm -rf /"
+  },
+  {
+    "tool": "powershell",
+    "pattern": {"command": "*shutdown*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: shutdown"
+  },
+  {
+    "tool": "powershell",
+    "pattern": {"command": "*reboot*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: reboot"
+  },
+  {
+    "tool": "powershell",
+    "pattern": {"command": "*mkfs*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: mkfs"
+  },
+  {
+    "tool": "powershell",
+    "pattern": {"command": "*dd if=*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: dd if="
+  },
+  {
+    "tool": "powershell",
+    "pattern": {"command": "*> /dev/sda*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Blocked: > /dev/sda"
+  },
+  {
+    "tool": "write_file",
+    "pattern": {"file_path": "*.gitconfig*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: .gitconfig"
+  },
+  {
+    "tool": "write_file",
+    "pattern": {"file_path": "*.bashrc*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: .bashrc"
+  },
+  {
+    "tool": "write_file",
+    "pattern": {"file_path": "*.zshrc*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: .zshrc"
+  },
+  {
+    "tool": "write_file",
+    "pattern": {"file_path": "*.env*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: .env"
+  },
+  {
+    "tool": "write_file",
+    "pattern": {"file_path": "*id_rsa*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: id_rsa"
+  },
+  {
+    "tool": "edit_file",
+    "pattern": {"file_path": "*.gitconfig*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: .gitconfig"
+  },
+  {
+    "tool": "edit_file",
+    "pattern": {"file_path": "*.bashrc*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: .bashrc"
+  },
+  {
+    "tool": "edit_file",
+    "pattern": {"file_path": "*.zshrc*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: .zshrc"
+  },
+  {
+    "tool": "edit_file",
+    "pattern": {"file_path": "*.env*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: .env"
+  },
+  {
+    "tool": "edit_file",
+    "pattern": {"file_path": "*id_rsa*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: id_rsa"
+  },
+  {
+    "tool": "config",
+    "pattern": {"action": "set", "key": ".env"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected key blocked: .env"
+  },
+  {
+    "tool": "config",
+    "pattern": {"action": "set", "key": "secret"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected key blocked: secret"
+  },
+  {
+    "tool": "config",
+    "pattern": {"action": "set", "key": "*.gitconfig*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: .gitconfig"
+  },
+  {
+    "tool": "config",
+    "pattern": {"action": "set", "key": "*.bashrc*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: .bashrc"
+  },
+  {
+    "tool": "config",
+    "pattern": {"action": "set", "key": "*.zshrc*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: .zshrc"
+  },
+  {
+    "tool": "config",
+    "pattern": {"action": "set", "key": "*.env*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: .env"
+  },
+  {
+    "tool": "config",
+    "pattern": {"action": "set", "key": "*id_rsa*"},
+    "decision": "deny",
+    "hard": true,
+    "message": "Protected path blocked: id_rsa"
+  }
+]
