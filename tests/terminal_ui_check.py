@@ -168,6 +168,26 @@ class TestTerminalUI(unittest.TestCase):
         self.assertFalse(output.strip() in {"# Title\n**bold**", "# Title**bold**"})
         self.assertNotEqual(output, "# Title\n**bold**")
 
+    def test_human_hides_tool_result_when_disabled(self) -> None:
+        # Show-tool-results toggle: AC-024 / REQ-005
+        buf = io.StringIO()
+        ui = TerminalUI(output=buf, json_mode=False, show_tool_results=False)
+        ui.event({"type": "tool", "name": "read_file", "arguments": {"file_path": "a.txt"}})
+        ui.event({"type": "status", "message": "running tools"})
+        ui.event({"type": "tool_result", "name": "read_file", "content": "ok", "is_error": False})
+        output = buf.getvalue()
+        self.assertIn("[tool]", output)
+        self.assertIn("[status]", output)
+        self.assertNotIn("[tool_result]", output)
+        self.assertNotIn("ok", output)
+
+    def test_human_shows_tool_result_when_enabled(self) -> None:
+        # Default behavior preserved when show_tool_results is True.
+        buf = io.StringIO()
+        ui = TerminalUI(output=buf, json_mode=False, show_tool_results=True)
+        ui.event({"type": "tool_result", "name": "read_file", "content": "ok", "is_error": False})
+        self.assertIn("[tool_result]", buf.getvalue())
+
     def test_human_non_text_events_stay_plain(self) -> None:
         # AC-022 / T-008
         buf = io.StringIO()

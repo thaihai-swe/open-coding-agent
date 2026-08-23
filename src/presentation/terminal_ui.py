@@ -117,10 +117,11 @@ def _read_stdin_char(timeout: float | None) -> str:
 
 
 class TerminalUI:
-    def __init__(self, input_fn: Callable[[str], str] = input, output=None, json_mode: bool = False) -> None:
+    def __init__(self, input_fn: Callable[[str], str] = input, output=None, json_mode: bool = False, show_tool_results: bool = True) -> None:
         self.input_fn = input_fn
         self.output = output or sys.stdout
         self.json_mode = json_mode
+        self.show_tool_results = show_tool_results
 
     def prompt(self) -> str:
         if self.input_fn is input:
@@ -188,6 +189,8 @@ class TerminalUI:
         elif event["type"] in {"tool", "tool_denied"}:
             self._write(f"[{event['type']}] {event['name']} {json.dumps(event['arguments'], sort_keys=True)}")
         elif event["type"] == "tool_result":
+            if not self.show_tool_results:
+                return
             self._write(f"[tool_result] {event.get('name', '')} {event.get('content', '')}")
         elif event["type"] == "status":
             self._write(f"[status] {event.get('message', '')}")

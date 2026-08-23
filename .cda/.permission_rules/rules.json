@@ -1,0 +1,163 @@
+[
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "echo root"
+    },
+    "decision": "deny"
+  },
+  {
+    "tool": "write_file",
+    "pattern": {
+      "file_path": "sandbox_test.txt"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && find . -type f -name \"*.py\" | grep -v __pycache__ | head -100"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && grep -rn \"show_tool_result\\|tool_result\\|hide_tool\" --include=\"*.py\" | head -30"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && grep -rn \"config\" src/infrastructure/ --include=\"*.py\" | head -30"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && ls -la && cat .cda/.secrets/config.json 2>/dev/null; echo \"---\"; ls -la .cda .cda/.permission_rules 2>/dev/null"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && ls -la .cda/.secrets/ 2>/dev/null; echo \"---\"; cat .cda/.secrets/config.json 2>/dev/null || echo \"no config.json\""
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && grep -rn \"config\" src/tools/handlers/settings.py src/tools.py 2>/dev/null | head -40"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && cat src/infrastructure/__init__.py && echo \"=== AGENTS.md head ===\" && head -40 AGENTS.md && echo \"=== grep config tool in tests ===\" && grep -rn \"config\\b\" tests/ | head"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "edit_file",
+    "pattern": {
+      "file_path": "/Users/thaihai-swe/Desktop/open-coding-agent/src/presentation/terminal_ui.py"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "edit_file",
+    "pattern": {
+      "file_path": "/Users/thaihai-swe/Desktop/open-coding-agent/src/presentation/cli.py"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "edit_file",
+    "pattern": {
+      "file_path": "/Users/thaihai-swe/Desktop/open-coding-agent/tests/terminal_ui_check.py"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && python -m pytest tests/terminal_ui_check.py -q 2>&1 | tail -30"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && python3 -m pytest tests/terminal_ui_check.py -q 2>&1 | tail -30"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && python3 -m pytest tests/query_engine_check.py -q 2>&1 | tail -30"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && python3 src/__main__.py --help 2>&1"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "write_file",
+    "pattern": {
+      "file_path": ".cda/ui-config.json"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && PYTHONPATH=. python3 src/__main__.py --help 2>&1"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && python3 -c \"\nimport sys\nsys.path.insert(0, '.')\nfrom src.presentation.cli import _resolve_show_tool_results, _load_ui_config\n\n# CLI None -> config file (true) or default true\nprint('cli=None, config=true =>', _resolve_show_tool_results(None))\nprint('cli=True =>', _resolve_show_tool_results(True))\nprint('cli=False =>', _resolve_show_tool_results(False))\n\""
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && python3 -m pytest tests/ -q 2>&1 | tail -20"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && python3 -m pytest -q 2>&1 | tail -20"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && python3 -m pytest tests/terminal_ui_check.py tests/query_engine_check.py tests/tools_check.py tests/cli_check.py -q 2>&1 | tail -20"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && git stash list 2>/dev/null; echo \"=== git status ===\"; git status --short 2>/dev/null | head; echo \"=== check if .cda in gitignore ===\"; grep -n \"cda\" .gitignore || echo \"NOT FOUND\""
+    },
+    "decision": "allow"
+  }
+]
