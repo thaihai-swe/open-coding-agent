@@ -972,6 +972,128 @@ class TestCompactTransformers(unittest.TestCase):
             self.assertNotIn("..", path.name)
 
 
+class TestMemoryStorageAndPrompts(unittest.TestCase):
+    def setUp(self) -> None:
+        self._cwd = os.getcwd()
+        self._temp = tempfile.TemporaryDirectory()
+        os.chdir(self._temp.name)
+
+    def tearDown(self) -> None:
+        os.chdir(self._cwd)
+        self._temp.cleanup()
+
+    def test_ac001_write_memory_file_and_rebuild_index(self) -> None:
+        from src.tools.memory import list_memory_files, read_memory_index, write_memory_file
+
+        path = write_memory_file(
+            "user-preference-tabs",
+            "user",
+            "tabs not spaces",
+            "Use tabs.",
+            Path.cwd(),
+        )
+        self.assertEqual(path.name, "user-preference-tabs.md")
+        self.assertTrue(path.is_file())
+        self.assertEqual(path.parent.resolve(), (Path.cwd() / ".cda" / "memory").resolve())
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("name: user-preference-tabs", text)
+        self.assertIn("description: tabs not spaces", text)
+        self.assertIn("type: user", text)
+        self.assertIn("Use tabs.", text)
+        index = read_memory_index(Path.cwd())
+        self.assertIn("- [user-preference-tabs](user-preference-tabs.md) — tabs not spaces", index)
+        memories = list_memory_files(Path.cwd())
+        self.assertEqual(len(memories), 1)
+        self.assertEqual(memories[0].name, "user-preference-tabs")
+        self.assertEqual(memories[0].type, "user")
+
+    def test_ac002_sanitize_slug_stays_inside_memory_dir(self) -> None:
+        from src.tools.memory import sanitize_slug, write_memory_file
+
+        path = write_memory_file("bad/../x", "user", "unsafe", "body", Path.cwd())
+        memory_dir = (Path.cwd() / ".cda" / "memory").resolve()
+        self.assertTrue(path.resolve().is_relative_to(memory_dir))
+        self.assertNotIn("..", path.name)
+        self.assertNotIn("/", path.name)
+        self.assertTrue(path.name.endswith(".md"))
+        slug = sanitize_slug("bad/../x")
+        self.assertNotIn("..", slug)
+        self.assertNotIn("/", slug)
+
+    def test_ac003_missing_memory_block_uses_defaults(self) -> None:
+        from src.tools.config import (
+            DEFAULT_COMPACT_CONFIG,
+            DEFAULT_MEMORY_CONFIG,
+            load_config,
+            resolve_compact_config,
+            resolve_memory_config,
+        )
+
+        self.assertEqual(load_config(Path.cwd()), {})
+        memory = resolve_memory_config(load_config(Path.cwd()))
+        compact = resolve_compact_config(load_config(Path.cwd()))
+        self.assertEqual(memory, DEFAULT_MEMORY_CONFIG)
+        self.assertTrue(memory["enabled"])
+        self.assertEqual(memory["max_relevant"], 5)
+        self.assertEqual(memory["consolidate_threshold"], 10)
+        self.assertTrue(memory["auto_extract"])
+        self.assertTrue(memory["auto_consolidate"])
+        self.assertEqual(compact["max_messages"], DEFAULT_COMPACT_CONFIG["max_messages"])
+
+    def test_ac004_partial_memory_override_keeps_other_defaults(self) -> None:
+        from src.tools.config import load_config, resolve_memory_config
+
+        Path(".cda").mkdir()
+        Path(".cda/config.json").write_text(
+            json.dumps({"memory": {"max_relevant": 2}}),
+            encoding="utf-8",
+        )
+        memory = resolve_memory_config(load_config(Path.cwd()))
+        self.assertEqual(memory["max_relevant"], 2)
+        self.assertEqual(memory["consolidate_threshold"], 10)
+        self.assertTrue(memory["enabled"])
+
+    def test_ensure_default_config_includes_memory_block(self) -> None:
+        from src.tools.config import DEFAULT_MEMORY_CONFIG, ensure_default_config, load_config
+
+        created = ensure_default_config(Path.cwd())
+        cfg = load_config(Path.cwd())
+        self.assertEqual(created, Path.cwd() / ".cda" / "config.json")
+        self.assertEqual(cfg["memory"], DEFAULT_MEMORY_CONFIG)
+
+    def test_default_config_json_is_source_of_startup_payload(self) -> None:
+        from src.tools.config import DEFAULT_CONFIG_PATH, ensure_default_config, load_default_config
+
+        bundled = json.loads(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(load_default_config(), bundled)
+        created = ensure_default_config(Path.cwd())
+        written = json.loads(created.read_text(encoding="utf-8"))
+        self.assertEqual(written, bundled)
+
+    def test_ac006_nonempty_index_appears_in_system_prompt(self) -> None:
+        from src.tools.memory import write_memory_file
+
+        write_memory_file("user-preference-tabs", "user", "tabs not spaces", "Use tabs.", Path.cwd())
+        prompt = assemble_system_prompt(cwd=Path.cwd())
+        self.assertIn("- [user-preference-tabs](user-preference-tabs.md) — tabs not spaces", prompt)
+
+    def test_ac007_empty_index_omits_memory_bullets(self) -> None:
+        prompt = assemble_system_prompt(cwd=Path.cwd())
+        self.assertNotIn("- [", prompt)
+        self.assertNotRegex(prompt, r"- \[.+\]\(.+\.md\)")
+
+    def test_ac008_memory_prompt_override_appears_when_index_present(self) -> None:
+        from src.tools.memory import write_memory_file
+
+        write_memory_file("user-preference-tabs", "user", "tabs not spaces", "Use tabs.", Path.cwd())
+        override_dir = Path(".cda") / "prompts"
+        override_dir.mkdir(parents=True, exist_ok=True)
+        (override_dir / "memory.md").write_text("OVERRIDE-MEMORY-PROMPT\n{catalog}", encoding="utf-8")
+        prompt = assemble_system_prompt(cwd=Path.cwd())
+        self.assertIn("OVERRIDE-MEMORY-PROMPT", prompt)
+        self.assertIn("- [user-preference-tabs](user-preference-tabs.md) — tabs not spaces", prompt)
+
+
 if __name__ == "__main__":
     unittest.main()
 

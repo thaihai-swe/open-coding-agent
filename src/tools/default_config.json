@@ -1,0 +1,22 @@
+{
+  "show_tool_results": true,
+  "compact": {
+    "auto_compact": true,
+    "max_messages": 50,
+    "max_chars": 80000,
+    "keep_head": 3,
+    "keep_recent": 4,
+    "keep_recent_tool_results": 3,
+    "tool_result_max_bytes": 200000,
+    "persist_preview_chars": 2000,
+    "reactive_retries": 1,
+    "compact_fail_retries": 3
+  },
+  "memory": {
+    "enabled": true,
+    "max_relevant": 5,
+    "consolidate_threshold": 10,
+    "auto_extract": true,
+    "auto_consolidate": true
+  }
+}

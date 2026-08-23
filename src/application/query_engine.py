@@ -21,7 +21,13 @@ from ..tools.compact import (
     snip_compact,
     tool_result_budget,
 )
-from ..tools.config import load_config, resolve_compact_config
+from ..tools.config import load_config, resolve_compact_config, resolve_memory_config
+from ..tools.memory import (
+    consolidate_memories,
+    extract_memories,
+    format_relevant_memories,
+    select_relevant_memories,
+)
 from ..tools.permissions import AuthorizeDecision, hard_deny_reason
 from ..tools.prompt import assemble_system_prompt, load_prompt_section
 from ..tools.task_board import PLANNING_MUTATION_NAMES, PLANNING_TOOL_NAMES, bind_session, reset_session
@@ -49,7 +55,9 @@ class QueryEngine:
         self.history = session.load(session_id) if session_id in session.list() else []
         self._rounds_without_planning = 0
         self._consecutive_compact_failures = 0
-        self.config = resolve_compact_config(load_config())
+        raw_cfg = load_config()
+        self.config = resolve_compact_config(raw_cfg)
+        self.memory_config = resolve_memory_config(raw_cfg)
 
     def turn(self, prompt: str) -> ProviderResponse:
         token = bind_session(self.session_id)
@@ -154,10 +162,21 @@ class QueryEngine:
     def _turn(self, prompt: str) -> ProviderResponse:
         self.history.append(ChatMessage("user", prompt))
         self._save()
+
+        relevant_content = ""
+        if self.memory_config.get("enabled", True):
+            selected_files = select_relevant_memories(
+                self.provider,
+                self.history,
+                max_items=self.memory_config.get("max_relevant", 5),
+            )
+            relevant_content = format_relevant_memories(selected_files)
+
         response: ProviderResponse | None = None
         turn_count = 0
         reactive_retries_used = 0
         max_reactive_retries = self.config.get("reactive_retries", 1)
+        pre_compress = list(self.history)
 
         while turn_count < self.max_turns:
             if self._rounds_without_planning >= 3:
@@ -165,11 +184,23 @@ class QueryEngine:
                 self._rounds_without_planning = 0
                 self._save()
 
+            pre_compress = list(self.history)
             self._apply_pre_complete_compaction()
+
+            request_history = list(self.history)
+            if relevant_content:
+                for i in reversed(range(len(request_history))):
+                    if request_history[i].role == "user" and request_history[i].content:
+                        orig = request_history[i].content or ""
+                        request_history[i] = replace(
+                            request_history[i],
+                            content=f"{relevant_content}\n\n{orig}",
+                        )
+                        break
 
             while True:
                 try:
-                    completion = self.provider.complete(self._with_system(self.history), _tool_schemas(), stream=True)
+                    completion = self.provider.complete(self._with_system(request_history), _tool_schemas(), stream=True)
                     if isinstance(completion, ProviderResponse):
                         response = completion
                         if response.message.content:
@@ -187,6 +218,16 @@ class QueryEngine:
                         if reactive_retries_used < max_reactive_retries:
                             reactive_retries_used += 1
                             if self.reactive_compact(tail_count=5):
+                                request_history = list(self.history)
+                                if relevant_content:
+                                    for i in reversed(range(len(request_history))):
+                                        if request_history[i].role == "user" and request_history[i].content:
+                                            orig = request_history[i].content or ""
+                                            request_history[i] = replace(
+                                                request_history[i],
+                                                content=f"{relevant_content}\n\n{orig}",
+                                            )
+                                            break
                                 continue
                     self._save()
                     raise
@@ -199,14 +240,37 @@ class QueryEngine:
             self._save()
             if not response.message.tool_calls:
                 self._rounds_without_planning += 1
+                self._post_turn_memory(pre_compress)
                 return replace(response, termination_reason="completed")
             hard_denied, mutated = self._run_batch(response.message.tool_calls)
             self._rounds_without_planning = 0 if mutated else self._rounds_without_planning + 1
             if hard_denied:
+                self._post_turn_memory(pre_compress)
                 return replace(response, termination_reason="completed")
             if any(call.name == "compact" for call in response.message.tool_calls):
+                self._post_turn_memory(pre_compress)
                 return replace(response, termination_reason="completed")
+        self._post_turn_memory(pre_compress)
         return replace(response, termination_reason="max_turns_reached")
+
+    def _post_turn_memory(self, snapshot: list[ChatMessage]) -> None:
+        if not self.memory_config.get("enabled", True):
+            return
+        if self.memory_config.get("auto_extract", True):
+            try:
+                count = extract_memories(self.provider, snapshot)
+                if count > 0:
+                    self.on_event({"type": "status", "message": f"extracted {count} new memories"})
+            except Exception:
+                pass
+        if self.memory_config.get("auto_consolidate", True):
+            try:
+                threshold = self.memory_config.get("consolidate_threshold", 10)
+                old_c, new_c = consolidate_memories(self.provider, threshold=threshold)
+                if old_c >= threshold:
+                    self.on_event({"type": "status", "message": f"consolidated memories: {old_c} -> {new_c}"})
+            except Exception:
+                pass
 
     def _with_system(self, history: list[ChatMessage]) -> list[ChatMessage]:
         return [ChatMessage("system", assemble_system_prompt()), *history]

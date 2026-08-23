@@ -44,6 +44,13 @@ Project-wide vocabulary from `/starter-init` (2026-08-22). Domain/product names 
 | `/compact` command | REPL slash command allowing the user to manually trigger full L4 context compaction | `6-compact-memory` |
 | `.cda/config.json` | Unified project configuration file storing UI preferences and context compaction thresholds | `6-compact-memory` |
 | `.cda/.transcripts/` | Directory storing full pre-compaction JSONL snapshots before L4 summarization | `6-compact-memory` |
+| persistent memory | Cross-session knowledge storage in `.cda/memory/` surviving session clears and context compactions | `7-memory-management` |
+| `MEMORY.md` | Index markdown file under `.cda/memory/MEMORY.md` cataloging memory entries with names and descriptions | `7-memory-management` |
+| memory frontmatter | YAML header in memory markdown files specifying `name`, `description`, and `type` (`user`, `feedback`, `project`, `reference`) | `7-memory-management` |
+| memory extraction | Post-turn LLM side-query extracting user preferences and project facts from recent dialogue | `7-memory-management` |
+| relevant memory selection | Pre-turn LLM side-query (with keyword fallback) selecting relevant memories to inject into request context | `7-memory-management` |
+| memory consolidation | Periodic LLM deduplication and pruning ("Dreaming") triggered when file count meets `consolidate_threshold` | `7-memory-management` |
+| `/memory` command | REPL slash command displaying persistent memory entries, metadata, and utilization statistics | `7-memory-management` |
 
 ## Technical Terms
 
@@ -63,6 +70,7 @@ Project-wide vocabulary from `/starter-init` (2026-08-22). Domain/product names 
 | `.cda/config.json` | Project-local JSON object for UI and compaction settings; replaces `.cda/ui-config.json` | `6-compact-memory` |
 | `.cda/task_outputs/tool-results/` | Workspace-bound files holding full oversized tool-result bodies after L3 persist | `6-compact-memory` |
 | `.cda/.transcripts/` | JSONL snapshots of full history taken immediately before L4 / reactive compact | `6-compact-memory` |
+| `.cda/memory/` | Workspace-bound directory holding persistent memory markdown files and `MEMORY.md` | `7-memory-management` |
 | Composition root | `src/presentation/cli.py` wires provider, store, UI, engine | CLI |
 
 ## Abbreviations

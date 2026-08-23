@@ -1,0 +1,89 @@
+{
+  "source": "tasks.md",
+  "generated_at": "2026-08-23T22:53:46",
+  "errors": [],
+  "task_count": 3,
+  "tasks": [
+    {
+      "id": "T-001",
+      "header": "- [x] T-001 [US1] [US2] [US3] `src/tools/memory.py`, `src/tools/config.py`, `src/prompts/memory.md`, `src/tools/prompt.py`, `tests/tools_check.py` \u2014 implement `src/tools/memory.py` (`Memory` dataclass, `parse_memory_frontmatter`, `sanitize_slug`, `write_memory_file`, `read_memory_file`, `list_memory_files`, `read_memory_index`, `rebuild_memory_index`), `src/tools/config.py` (`DEFAULT_MEMORY_CONFIG`, `resolve_memory_config`, update `DEFAULT_CONFIG` and `ensure_default_config`), `src/prompts/memory.md` bundled prompt template, and `src/tools/prompt.py` (`\"memory\"` section in `PROMPT_SECTIONS` and `FALLBACK_SECTIONS`, format `MEMORY.md` catalog into `assemble_system_prompt`); add unit tests in `tests/tools_check.py`.",
+      "status": "Done",
+      "done": true,
+      "depends": [],
+      "evidence": [
+        "`python3 tests/tools_check.py`",
+        "python3 tests/tools_check.py exit 0; 84 tests OK. Implemented src/tools/memory.py, src/tools/config.py memory block, src/prompts/memory.md, and assemble_system_prompt integration. Covers AC-001, AC-002, AC-003, AC-004, AC-006, AC-007, AC-008."
+      ],
+      "acceptance_criteria": [
+        "AC-003",
+        "AC-002",
+        "AC-006",
+        "AC-007",
+        "AC-004",
+        "AC-001",
+        "AC-008"
+      ]
+    },
+    {
+      "id": "T-002",
+      "header": "- [x] T-002 [US2] [US4] [US5] `src/tools/memory.py`, `src/application/query_engine.py`, `tests/query_engine_check.py` \u2014 implement `select_relevant_memories`, `format_relevant_memories`, `extract_memories`, and `consolidate_memories` in `src/tools/memory.py`; update `QueryEngine` in `src/application/query_engine.py` to prefetch relevant memories at the start of a user turn, inject `<relevant_memories>` into outgoing request messages without modifying `self.history`, snapshot pre-compression messages, run post-turn extraction on turn completion, and trigger consolidation when memory file count meets or exceeds `consolidate_threshold`; ensure side-query calls are tool-less, non-blocking to the main turn on error, and respect `memory.enabled`, `auto_extract`, and `auto_consolidate`; add tests in `tests/query_engine_check.py`.",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-001"
+      ],
+      "evidence": [
+        "`python3 tests/query_engine_check.py`",
+        "python3 tests/query_engine_check.py exit 0; 67 tests OK. Request-only relevant injection, extract from pre-compact snapshot, consolidate at threshold, tool-less side queries. Covers AC-005, AC-009\u2013AC-015, AC-018, AC-019."
+      ],
+      "acceptance_criteria": [
+        "AC-012",
+        "AC-013",
+        "AC-005",
+        "AC-019",
+        "AC-014",
+        "AC-018",
+        "AC-010",
+        "AC-009",
+        "AC-011",
+        "AC-015"
+      ]
+    },
+    {
+      "id": "T-003",
+      "header": "- [x] T-003 [US6] `src/presentation/cli.py`, `tests/cli_check.py` \u2014 intercept `/memory` in the REPL loop in `src/presentation/cli.py` before skill expansion to format and emit memory entries and file count statistics via status events without calling `engine.turn(\"/memory\")` or reporting unknown skill; update `tests/cli_check.py`; verify full test suite passes and Python compilation succeeds.",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-002"
+      ],
+      "evidence": [
+        "`python3 -m compileall -q src` && `python3 -m unittest discover -s tests -p '*_check.py'`",
+        "python3 -m compileall -q src exit 0; python3 -m unittest discover -s tests -p '*_check.py' exit 0; 212 tests passing. CLI /memory slash command intercepted before skills, status event formatting, skill preservation, AC-016, AC-017, AC-020."
+      ],
+      "acceptance_criteria": [
+        "AC-005",
+        "AC-019",
+        "AC-015",
+        "AC-017",
+        "AC-018",
+        "AC-006",
+        "AC-001",
+        "AC-003",
+        "AC-002",
+        "AC-007",
+        "AC-004",
+        "AC-009",
+        "AC-020",
+        "AC-012",
+        "AC-013",
+        "AC-014",
+        "AC-016",
+        "AC-010",
+        "AC-008",
+        "AC-011"
+      ]
+    }
+  ],
+  "markdown_hash": "fda544660b4e637962f1a74bbab6056233219da874912e56faedb5eb9040043b"
+}

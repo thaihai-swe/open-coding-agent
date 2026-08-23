@@ -47,6 +47,10 @@ class TestCli(unittest.TestCase):
                 self.assertTrue(data.get("show_tool_results"))
                 self.assertIn("compact", data)
                 self.assertEqual(data["compact"].get("max_messages"), 50)
+                self.assertIn("memory", data)
+                self.assertTrue(data["memory"].get("enabled"))
+                self.assertEqual(data["memory"].get("max_relevant"), 5)
+                self.assertEqual(data["memory"].get("consolidate_threshold"), 10)
                 rules_file = Path(temp_dir) / ".cda" / ".permission_rules" / "rules.json"
                 self.assertTrue(rules_file.is_file())
                 rules = json.loads(rules_file.read_text(encoding="utf-8"))
@@ -189,6 +193,76 @@ class TestCli(unittest.TestCase):
                 os.chdir(cwd)
 
     def test_ac014_skill_slash_still_expands(self) -> None:
+        class MockEngine:
+            def __init__(self) -> None:
+                self.prompts: list[str] = []
+
+            def turn(self, prompt: str):
+                self.prompts.append(prompt)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cwd = os.getcwd()
+            os.chdir(temp_dir)
+            try:
+                skill_path = Path(".agents") / "skills" / "code-review" / "SKILL.md"
+                skill_path.parent.mkdir(parents=True, exist_ok=True)
+                skill_path.write_text("BODY", encoding="utf-8")
+                mock_engine = MockEngine()
+                with (
+                    patch("src.presentation.cli.OpenAIProvider"),
+                    patch("src.presentation.cli.SessionStore"),
+                    patch("src.presentation.cli.QueryEngine", return_value=mock_engine),
+                    patch("src.presentation.cli.TerminalUI") as ui_cls,
+                ):
+                    ui_mock = ui_cls.return_value
+                    ui_mock.prompt.side_effect = ["/code-review", ""]
+                    code = run([])
+                    self.assertEqual(code, 0)
+                self.assertEqual(mock_engine.prompts, ['<skill name="code-review">\nBODY\n</skill>'])
+            finally:
+                os.chdir(cwd)
+
+    def test_ac016_memory_slash_lists_entries_without_turn(self) -> None:
+        from src.tools.memory import write_memory_file
+
+        class MockEngine:
+            def __init__(self) -> None:
+                self.prompts: list[str] = []
+
+            def turn(self, prompt: str):
+                self.prompts.append(prompt)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cwd = os.getcwd()
+            os.chdir(temp_dir)
+            try:
+                write_memory_file("user-preference-tabs", "user", "tabs not spaces", "Use tabs.", Path.cwd())
+                write_memory_file("project-auth", "project", "auth rewrite", "Auth is compliance-driven.", Path.cwd())
+                mock_engine = MockEngine()
+                events: list[dict] = []
+                with (
+                    patch("src.presentation.cli.OpenAIProvider"),
+                    patch("src.presentation.cli.SessionStore"),
+                    patch("src.presentation.cli.QueryEngine", return_value=mock_engine),
+                    patch("src.presentation.cli.TerminalUI") as ui_cls,
+                ):
+                    ui_mock = ui_cls.return_value
+                    ui_mock.prompt.side_effect = ["/memory", ""]
+                    ui_mock.event.side_effect = events.append
+                    code = run([])
+                    self.assertEqual(code, 0)
+                self.assertEqual(mock_engine.prompts, [])
+                self.assertFalse(any("Unknown skill: /memory" in e.get("message", "") for e in events))
+                status = [e for e in events if e.get("type") == "status"]
+                self.assertTrue(status)
+                joined = "\n".join(e.get("message", "") for e in status)
+                self.assertIn("user-preference-tabs", joined)
+                self.assertIn("project-auth", joined)
+                self.assertIn("2", joined)
+            finally:
+                os.chdir(cwd)
+
+    def test_ac017_other_skill_slash_still_expands(self) -> None:
         class MockEngine:
             def __init__(self) -> None:
                 self.prompts: list[str] = []

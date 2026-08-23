@@ -23,12 +23,26 @@ def _once(allow: bool) -> AuthorizeDecision:
 
 
 class FakeProvider:
-    def __init__(self, responses: list[ProviderResponse]) -> None:
+    def __init__(
+        self,
+        responses: list[ProviderResponse],
+        side_responses: list[ProviderResponse] | None = None,
+    ) -> None:
         self.responses = list(responses)
+        self.side_responses = list(side_responses or [])
         self.calls: list[list[ChatMessage]] = []
+        self.side_calls: list[list[ChatMessage]] = []
+        self.tools_used: list[list[dict]] = []
 
     def complete(self, history: list[ChatMessage], tools: list[dict], stream: bool = False) -> ProviderResponse:
+        if tools == [] and history and all(m.role != "system" for m in history):
+            self.side_calls.append(list(history))
+            self.tools_used.append(list(tools))
+            if self.side_responses:
+                return self.side_responses.pop(0)
+            return ProviderResponse(ChatMessage("assistant", "[]"))
         self.calls.append(list(history))
+        self.tools_used.append(list(tools))
         if not self.responses:
             raise ProviderError("No more responses")
         return self.responses.pop(0)
@@ -40,10 +54,42 @@ class AlwaysToolProvider:
         self.call_count = 0
 
     def complete(self, history: list[ChatMessage], tools: list[dict], stream: bool = False) -> ProviderResponse:
+        if tools == [] and history and all(m.role != "system" for m in history):
+            return ProviderResponse(ChatMessage("assistant", "[]"))
         self.call_count += 1
         return ProviderResponse(
             ChatMessage("assistant", tool_calls=(ToolCall(f"call-{self.call_count}", "read_file", {"file_path": "nonexistent.txt"}),))
         )
+
+
+class RaisingSideProvider:
+    """Main-turn FakeProvider that raises on the first memory side-query."""
+
+    def __init__(self, responses: list[ProviderResponse], raise_on: int = 1) -> None:
+        self.inner = FakeProvider(responses)
+        self.raise_on = raise_on
+        self.side_count = 0
+
+    @property
+    def calls(self) -> list[list[ChatMessage]]:
+        return self.inner.calls
+
+    @property
+    def side_calls(self) -> list[list[ChatMessage]]:
+        return self.inner.side_calls
+
+    @property
+    def tools_used(self) -> list[list[dict]]:
+        return self.inner.tools_used
+
+    def complete(self, history: list[ChatMessage], tools: list[dict], stream: bool = False) -> ProviderResponse:
+        if tools == [] and history and all(m.role != "system" for m in history):
+            self.side_count += 1
+            if self.side_count == self.raise_on:
+                self.inner.side_calls.append(list(history))
+                self.inner.tools_used.append(list(tools))
+                raise ProviderError("selector failed")
+        return self.inner.complete(history, tools, stream)
 
 
 class TestQueryEngine(unittest.TestCase):
@@ -1603,6 +1649,232 @@ class TestCompactionEngine(unittest.TestCase):
         summarizer_call = provider.calls[0]
         self.assertEqual(summarizer_call[0].role, "system")
         self.assertIn("CUSTOM-COMPACT-INSTRUCTIONS", summarizer_call[0].content)
+
+
+class TestPersistentMemoryEngine(unittest.TestCase):
+    def setUp(self) -> None:
+        self._cwd = os.getcwd()
+        self._temp = tempfile.TemporaryDirectory()
+        os.chdir(self._temp.name)
+
+    def tearDown(self) -> None:
+        os.chdir(self._cwd)
+        self._temp.cleanup()
+
+    def _engine(self, provider, session_id: str = "s1", on_event=None, memory_cfg: dict | None = None) -> QueryEngine:
+        store = SessionStore(Path(".cda/.sessions"))
+        engine = QueryEngine(
+            provider,
+            store,
+            session_id,
+            authorize=lambda name, args: _once(True),
+            on_event=on_event or (lambda event: None),
+        )
+        if memory_cfg is not None:
+            engine.memory_config.update(memory_cfg)
+        return engine
+
+    def test_ac005_disabled_memory_skips_side_queries(self) -> None:
+        from src.tools.memory import write_memory_file
+
+        write_memory_file("user-preference-tabs", "user", "tabs not spaces", "Use tabs.", Path.cwd())
+        provider = FakeProvider([ProviderResponse(ChatMessage("assistant", "ok"))])
+        engine = self._engine(provider, memory_cfg={"enabled": False})
+        engine.turn("remember I like tabs")
+        self.assertEqual(provider.side_calls, [])
+        self.assertEqual(len(provider.calls), 1)
+
+    def test_ac009_relevant_memories_injected_into_request_not_history(self) -> None:
+        from src.tools.memory import write_memory_file
+
+        write_memory_file("aaa-tabs", "user", "tabs not spaces", "Use tabs.", Path.cwd())
+        write_memory_file("zzz-auth", "project", "auth rewrite", "Auth is compliance-driven.", Path.cwd())
+        provider = FakeProvider(
+            [ProviderResponse(ChatMessage("assistant", "ok"))],
+            side_responses=[
+                ProviderResponse(ChatMessage("assistant", "[0]")),
+                ProviderResponse(ChatMessage("assistant", "[]")),
+            ],
+        )
+        engine = self._engine(provider)
+        engine.turn("please use my indent style")
+        turn_user = next(m for m in provider.calls[0] if m.role == "user")
+        self.assertIn("<relevant_memories>", turn_user.content)
+        self.assertIn("Use tabs.", turn_user.content)
+        self.assertIn("</relevant_memories>", turn_user.content)
+        hist_user = next(m for m in engine.history if m.role == "user")
+        self.assertNotIn("<relevant_memories>", hist_user.content or "")
+
+    def test_ac010_selector_failure_falls_back_to_keywords(self) -> None:
+        from src.tools.memory import write_memory_file
+
+        write_memory_file("user-preference-tabs", "user", "tabs not spaces", "Use tabs.", Path.cwd())
+        provider = RaisingSideProvider([ProviderResponse(ChatMessage("assistant", "ok"))], raise_on=1)
+        engine = self._engine(provider)
+        res = engine.turn("remember I like tabs")
+        self.assertEqual(res.termination_reason, "completed")
+        turn_user = next(m for m in provider.calls[0] if m.role == "user")
+        self.assertIn("Use tabs.", turn_user.content)
+        self.assertIn("<relevant_memories>", turn_user.content)
+
+    def test_ac011_extract_uses_pre_compression_snapshot(self) -> None:
+        from src.tools.memory import list_memory_files
+
+        extract_item = json.dumps(
+            [{"name": "user-preference-tabs", "type": "user", "description": "tabs", "body": "Use tabs"}]
+        )
+        provider = FakeProvider(
+            [
+                ProviderResponse(ChatMessage("assistant", "SUM-BODY")),
+                ProviderResponse(ChatMessage("assistant", "done")),
+            ],
+            side_responses=[
+                ProviderResponse(ChatMessage("assistant", extract_item)),
+                ProviderResponse(ChatMessage("assistant", "[]")),
+            ],
+        )
+        engine = self._engine(provider)
+        engine.config.update({"max_chars": 300, "keep_recent": 2, "auto_compact": True})
+        long_content = "Z" * 500
+        engine.history = [
+            ChatMessage("user", long_content),
+            ChatMessage("assistant", "short"),
+            ChatMessage("user", "recent1"),
+            ChatMessage("assistant", "recent2"),
+        ]
+        engine.turn("new turn")
+        extract_prompt = provider.side_calls[0][0].content or ""
+        self.assertIn(long_content[:80], extract_prompt)
+        self.assertTrue(list_memory_files(Path.cwd()))
+
+    def test_ac012_extractor_writes_file_and_emits_status(self) -> None:
+        from src.tools.memory import list_memory_files, read_memory_index
+
+        extract_item = json.dumps(
+            [{"name": "user-preference-tabs", "type": "user", "description": "tabs", "body": "Use tabs"}]
+        )
+        provider = FakeProvider(
+            [ProviderResponse(ChatMessage("assistant", "ok"))],
+            side_responses=[ProviderResponse(ChatMessage("assistant", extract_item))],
+        )
+        events: list[dict] = []
+        engine = self._engine(provider, on_event=events.append)
+        engine.turn("I prefer tabs")
+        memories = list_memory_files(Path.cwd())
+        self.assertEqual(len(memories), 1)
+        self.assertEqual(memories[0].name, "user-preference-tabs")
+        self.assertIn("user-preference-tabs", read_memory_index(Path.cwd()))
+        status = [e for e in events if e.get("type") == "status" and "extracted" in e.get("message", "").lower()]
+        self.assertTrue(status)
+        self.assertIn("1", status[0]["message"])
+
+    def test_ac013_empty_extract_does_not_add_files(self) -> None:
+        from src.tools.memory import list_memory_files
+
+        provider = FakeProvider(
+            [ProviderResponse(ChatMessage("assistant", "ok"))],
+            side_responses=[ProviderResponse(ChatMessage("assistant", "[]"))],
+        )
+        engine = self._engine(provider)
+        engine.turn("hello")
+        self.assertEqual(list_memory_files(Path.cwd()), [])
+
+    def test_ac014_consolidate_replaces_files_at_threshold(self) -> None:
+        from src.tools.memory import list_memory_files, read_memory_index, write_memory_file
+
+        for i in range(10):
+            write_memory_file(f"mem-{i}", "project", f"desc {i}", f"body {i}", Path.cwd())
+        consolidated = json.dumps(
+            [
+                {"name": "keep-a", "type": "project", "description": "a", "body": "A"},
+                {"name": "keep-b", "type": "project", "description": "b", "body": "B"},
+                {"name": "keep-c", "type": "project", "description": "c", "body": "C"},
+            ]
+        )
+        provider = FakeProvider(
+            [ProviderResponse(ChatMessage("assistant", "ok"))],
+            side_responses=[
+                ProviderResponse(ChatMessage("assistant", "[]")),
+                ProviderResponse(ChatMessage("assistant", "[]")),
+                ProviderResponse(ChatMessage("assistant", consolidated)),
+            ],
+        )
+        events: list[dict] = []
+        engine = self._engine(provider, on_event=events.append)
+        engine.turn("hello")
+        remaining = list_memory_files(Path.cwd())
+        self.assertEqual(len(remaining), 3)
+        names = {m.name for m in remaining}
+        self.assertEqual(names, {"keep-a", "keep-b", "keep-c"})
+        index = read_memory_index(Path.cwd())
+        self.assertEqual(index.count("- ["), 3)
+        status = [e for e in events if e.get("type") == "status" and "consolidated" in e.get("message", "").lower()]
+        self.assertTrue(status)
+
+    def test_ac015_consolidator_failure_leaves_files(self) -> None:
+        from src.tools.memory import list_memory_files, write_memory_file
+
+        for i in range(10):
+            write_memory_file(f"keep-{i}", "project", f"desc {i}", f"body {i}", Path.cwd())
+        provider = RaisingSideProvider([ProviderResponse(ChatMessage("assistant", "ok"))], raise_on=2)
+        engine = self._engine(provider)
+        res = engine.turn("hello")
+        self.assertEqual(res.termination_reason, "completed")
+        self.assertEqual(res.message.content, "ok")
+        self.assertEqual(len(list_memory_files(Path.cwd())), 10)
+
+    def test_ac018_side_queries_use_empty_tools(self) -> None:
+        from src.tools.memory import write_memory_file
+
+        write_memory_file("user-preference-tabs", "user", "tabs", "Use tabs.", Path.cwd())
+        provider = FakeProvider(
+            [ProviderResponse(ChatMessage("assistant", "ok"))],
+            side_responses=[
+                ProviderResponse(ChatMessage("assistant", "[0]")),
+                ProviderResponse(ChatMessage("assistant", "[]")),
+            ],
+        )
+        engine = self._engine(provider)
+        engine.turn("tabs please")
+        self.assertTrue(provider.side_calls)
+        for tools in provider.tools_used:
+            if tools == []:
+                continue
+            self.assertTrue(tools)
+
+    def test_ac019_session_json_has_no_system_or_relevant_wrapper(self) -> None:
+        from src.tools.memory import write_memory_file
+
+        write_memory_file("user-preference-tabs", "user", "tabs", "Use tabs.", Path.cwd())
+        extract_item = json.dumps(
+            [{"name": "user-preference-spaces", "type": "user", "description": "spaces", "body": "Use spaces"}]
+        )
+        provider = FakeProvider(
+            [
+                ProviderResponse(ChatMessage("assistant", "SUM-BODY")),
+                ProviderResponse(ChatMessage("assistant", "done")),
+            ],
+            side_responses=[
+                ProviderResponse(ChatMessage("assistant", "[0]")),
+                ProviderResponse(ChatMessage("assistant", extract_item)),
+            ],
+        )
+        engine = self._engine(provider)
+        engine.config.update({"max_chars": 300, "keep_recent": 2})
+        engine.history = [
+            ChatMessage("user", "Z" * 500),
+            ChatMessage("assistant", "short"),
+            ChatMessage("user", "recent1"),
+            ChatMessage("assistant", "recent2"),
+        ]
+        engine.turn("new turn")
+        session_file = Path(".cda/.sessions/s1.json")
+        data = json.loads(session_file.read_text(encoding="utf-8"))
+        self.assertEqual(set(data.keys()), {"messages"})
+        for msg in data["messages"]:
+            self.assertNotEqual(msg.get("role"), "system")
+            content = msg.get("content") or ""
+            self.assertNotIn("<relevant_memories>", content)
 
 
 if __name__ == "__main__":

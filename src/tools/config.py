@@ -5,24 +5,20 @@ from pathlib import Path
 from typing import Any
 
 CONFIG_PATH = Path(".cda/config.json")
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "default_config.json"
 
-DEFAULT_COMPACT_CONFIG: dict[str, Any] = {
-    "auto_compact": True,
-    "max_messages": 50,
-    "max_chars": 80000,
-    "keep_head": 3,
-    "keep_recent": 4,
-    "keep_recent_tool_results": 3,
-    "tool_result_max_bytes": 200000,
-    "persist_preview_chars": 2000,
-    "reactive_retries": 1,
-    "compact_fail_retries": 3,
-}
 
-DEFAULT_CONFIG: dict[str, Any] = {
-    "show_tool_results": True,
-    "compact": dict(DEFAULT_COMPACT_CONFIG),
-}
+def load_default_config() -> dict[str, Any]:
+    try:
+        data = json.loads(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+DEFAULT_CONFIG: dict[str, Any] = load_default_config()
+DEFAULT_COMPACT_CONFIG: dict[str, Any] = dict(DEFAULT_CONFIG.get("compact") or {})
+DEFAULT_MEMORY_CONFIG: dict[str, Any] = dict(DEFAULT_CONFIG.get("memory") or {})
 
 
 def ensure_default_config(cwd: Path | str | None = None) -> Path:
@@ -31,10 +27,7 @@ def ensure_default_config(cwd: Path | str | None = None) -> Path:
     if target.is_file():
         return target
     target.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "show_tool_results": DEFAULT_CONFIG["show_tool_results"],
-        "compact": dict(DEFAULT_COMPACT_CONFIG),
-    }
+    payload = load_default_config()
     target.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return target
 
@@ -57,6 +50,17 @@ def resolve_compact_config(config: dict[str, Any] | None = None) -> dict[str, An
         compact_user = config.get("compact")
         if isinstance(compact_user, dict):
             for key, val in compact_user.items():
+                if key in resolved and val is not None:
+                    resolved[key] = val
+    return resolved
+
+
+def resolve_memory_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
+    resolved = dict(DEFAULT_MEMORY_CONFIG)
+    if config:
+        memory_user = config.get("memory")
+        if isinstance(memory_user, dict):
+            for key, val in memory_user.items():
                 if key in resolved and val is not None:
                     resolved[key] = val
     return resolved

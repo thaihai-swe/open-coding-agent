@@ -8,7 +8,8 @@ from ..application.query_engine import QueryEngine
 from ..domain.errors import ProviderError
 from ..infrastructure.providers import OpenAIProvider
 from ..infrastructure.session_store import SessionStore
-from ..tools.config import ensure_default_config, resolve_show_tool_results
+from ..tools.config import ensure_default_config, resolve_memory_config, resolve_show_tool_results, load_config
+from ..tools.memory import list_memory_files
 from ..tools.permission_rules import ensure_default_rules
 from ..tools.skills import expand_slash_prompt
 from .terminal_ui import TerminalUI
@@ -53,6 +54,15 @@ def run(argv: list[str] | None = None) -> int:
                     ui.event({"type": "status", "message": "Context compacted."})
                 else:
                     ui.event({"type": "status", "message": "Nothing to compact or compaction limit reached."})
+                continue
+            if prompt == "/memory" or prompt.startswith("/memory "):
+                memories = list_memory_files()
+                memory_cfg = resolve_memory_config(load_config())
+                threshold = memory_cfg.get("consolidate_threshold", 10)
+                lines = [f"Memories: {len(memories)} / {threshold}"]
+                for mem in memories:
+                    lines.append(f"- [{mem.type}] {mem.name}: {mem.description}")
+                ui.event({"type": "status", "message": "\n".join(lines)})
                 continue
             if prompt.startswith("/"):
                 expanded, err = expand_slash_prompt(prompt)

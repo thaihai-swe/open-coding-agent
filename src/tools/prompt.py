@@ -4,6 +4,7 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
+from .memory import read_memory_index
 from .registry import Tool, registry
 from .skills import format_catalog
 from .task_board import SYSTEM_MESSAGE as PLANNING_SYSTEM_MESSAGE
@@ -11,7 +12,7 @@ from .task_board import SYSTEM_MESSAGE as PLANNING_SYSTEM_MESSAGE
 INSTRUCTION_FILENAMES = ("AGENTS.md", "CLAUDE.md", "CLAUDE.local.md")
 MAX_FILE_CHARS = 4000
 MAX_TOTAL_INSTRUCTION_CHARS = 12000
-PROMPT_SECTIONS = ("identity", "planning", "security", "compact")
+PROMPT_SECTIONS = ("identity", "planning", "security", "compact", "memory")
 OVERRIDE_PROMPTS_DIR = Path(".cda") / "prompts"
 DEFAULT_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 FALLBACK_SECTIONS: dict[str, str] = {
@@ -28,6 +29,11 @@ FALLBACK_SECTIONS: dict[str, str] = {
         "You are summarizing a conversation to free up context window space. "
         "Create a structured summary of the conversation so far, preserving key goals, decisions, "
         "modified files, errors and fixes, and remaining next steps."
+    ),
+    "memory": (
+        "Memories available:\n"
+        "{catalog}\n\n"
+        "Relevant memories are injected into turn context when applicable. Respect user preferences, constraints, and project facts from memory."
     ),
 }
 
@@ -125,6 +131,15 @@ def assemble_system_prompt(
         format_tools_section(tools),
         format_catalog(skills),
     ]
+
+    memory_index = read_memory_index(root)
+    if memory_index:
+        memory_template = load_prompt_section("memory", root)
+        if "{catalog}" in memory_template:
+            memory_section = memory_template.replace("{catalog}", memory_index)
+        else:
+            memory_section = f"{memory_template}\n\nMemories available:\n{memory_index}"
+        sections.append(memory_section)
 
     instructions = discover_instructions(root)
     if instructions:
