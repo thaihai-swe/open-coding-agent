@@ -51,41 +51,70 @@ class TestTerminalUI(unittest.TestCase):
             return _in
 
         ui_1 = TerminalUI(input_fn=make_input(f" {AuthorizeOption.ALLOW_ONCE} "))
-        d1 = ui_1.authorize("bash", {"command": "ls"})
+        d1 = ui_1.authorize("bash", {"command": "ls -la"})
         self.assertTrue(d1.allow)
         self.assertFalse(d1.persist)
+        self.assertFalse(d1.persist_pattern)
 
         ui_2 = TerminalUI(input_fn=make_input(AuthorizeOption.ALLOW_ALWAYS))
-        d2 = ui_2.authorize("bash", {"command": "ls"})
+        d2 = ui_2.authorize("bash", {"command": "ls -la"})
         self.assertTrue(d2.allow)
         self.assertTrue(d2.persist)
+        self.assertFalse(d2.persist_pattern)
 
-        ui_3 = TerminalUI(input_fn=make_input(AuthorizeOption.DENY_ONCE))
-        d3 = ui_3.authorize("bash", {"command": "ls"})
-        self.assertFalse(d3.allow)
-        self.assertFalse(d3.persist)
+        ui_3 = TerminalUI(input_fn=make_input(AuthorizeOption.ALLOW_PATTERN))
+        d3 = ui_3.authorize("bash", {"command": "ls -la"})
+        self.assertTrue(d3.allow)
+        self.assertTrue(d3.persist)
+        self.assertTrue(d3.persist_pattern)
 
-        ui_4 = TerminalUI(input_fn=make_input(f" {AuthorizeOption.DENY_ALWAYS} "))
-        d4 = ui_4.authorize("bash", {"command": "ls"})
+        ui_4 = TerminalUI(input_fn=make_input(AuthorizeOption.DENY_ONCE))
+        d4 = ui_4.authorize("bash", {"command": "ls -la"})
         self.assertFalse(d4.allow)
-        self.assertTrue(d4.persist)
+        self.assertFalse(d4.persist)
+        self.assertFalse(d4.persist_pattern)
 
-        for bad in ("", "a", "approve", "other", "yes", "no"):
+        ui_5 = TerminalUI(input_fn=make_input(f" {AuthorizeOption.DENY_ALWAYS} "))
+        d5 = ui_5.authorize("bash", {"command": "ls -la"})
+        self.assertFalse(d5.allow)
+        self.assertTrue(d5.persist)
+        self.assertFalse(d5.persist_pattern)
+
+        ui_6 = TerminalUI(input_fn=make_input(AuthorizeOption.DENY_PATTERN))
+        d6 = ui_6.authorize("bash", {"command": "ls -la"})
+        self.assertFalse(d6.allow)
+        self.assertTrue(d6.persist)
+        self.assertTrue(d6.persist_pattern)
+
+        for bad in ("", "a", "approve", "other", "yes", "no", "7"):
             with self.subTest(bad=bad):
                 ui = TerminalUI(input_fn=make_input(bad))
-                d = ui.authorize("bash", {"command": "ls"})
+                d = ui.authorize("bash", {"command": "ls -la"})
                 self.assertFalse(d.allow)
                 self.assertFalse(d.persist)
+                self.assertFalse(d.persist_pattern)
 
         prompt_str = prompts[0]
-        self.assertIn(f"[{AuthorizeOption.ALLOW_ONCE}]", prompt_str)
-        self.assertIn(f"[{AuthorizeOption.ALLOW_ALWAYS}]", prompt_str)
-        self.assertIn(f"[{AuthorizeOption.DENY_ONCE}]", prompt_str)
-        self.assertIn(f"[{AuthorizeOption.DENY_ALWAYS}]", prompt_str)
-        self.assertIn("Yes", prompt_str)
-        self.assertIn("No", prompt_str)
-        self.assertIn("don't ask again", prompt_str)
+        self.assertIn(f"[{AuthorizeOption.ALLOW_ONCE}] Yes\n", prompt_str)
+        self.assertIn(f"[{AuthorizeOption.ALLOW_ALWAYS}] Yes, don't ask again\n", prompt_str)
+        self.assertIn(f'[{AuthorizeOption.ALLOW_PATTERN}] Yes, don\'t ask again for "ls *"\n', prompt_str)
+        self.assertIn(f"[{AuthorizeOption.DENY_ONCE}] No\n", prompt_str)
+        self.assertIn(f"[{AuthorizeOption.DENY_ALWAYS}] No, don't ask again\n", prompt_str)
+        self.assertIn(f'[{AuthorizeOption.DENY_PATTERN}] No, don\'t ask again for "ls *": ', prompt_str)
         self.assertIn("?\n[", prompt_str)
+
+    def test_authorization_prompt_shows_tool_when_pattern_is_star(self) -> None:
+        prompts: list[str] = []
+
+        def _in(p: str) -> str:
+            prompts.append(p)
+            return AuthorizeOption.ALLOW_ONCE
+
+        ui = TerminalUI(input_fn=_in)
+        ui.authorize("write_file", {"file_path": "notes.txt", "content": "x"})
+        prompt_str = prompts[0]
+        self.assertIn('don\'t ask again for "write_file *"', prompt_str)
+        self.assertNotIn('don\'t ask again for "*"', prompt_str)
 
     def test_json_event(self) -> None:
         buf = io.StringIO()

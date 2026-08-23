@@ -16,27 +16,35 @@ class TestAuthorizeOption(unittest.TestCase):
     def test_from_response_maps_each_option(self) -> None:
         self.assertEqual(
             AuthorizeDecision.from_response(AuthorizeOption.ALLOW_ONCE),
-            AuthorizeDecision(allow=True, persist=False),
+            AuthorizeDecision(allow=True, persist=False, persist_pattern=False),
         )
         self.assertEqual(
             AuthorizeDecision.from_response(AuthorizeOption.ALLOW_ALWAYS),
-            AuthorizeDecision(allow=True, persist=True),
+            AuthorizeDecision(allow=True, persist=True, persist_pattern=False),
+        )
+        self.assertEqual(
+            AuthorizeDecision.from_response(AuthorizeOption.ALLOW_PATTERN),
+            AuthorizeDecision(allow=True, persist=True, persist_pattern=True),
         )
         self.assertEqual(
             AuthorizeDecision.from_response(AuthorizeOption.DENY_ONCE),
-            AuthorizeDecision(allow=False, persist=False),
+            AuthorizeDecision(allow=False, persist=False, persist_pattern=False),
         )
         self.assertEqual(
             AuthorizeDecision.from_response(AuthorizeOption.DENY_ALWAYS),
-            AuthorizeDecision(allow=False, persist=True),
+            AuthorizeDecision(allow=False, persist=True, persist_pattern=False),
+        )
+        self.assertEqual(
+            AuthorizeDecision.from_response(AuthorizeOption.DENY_PATTERN),
+            AuthorizeDecision(allow=False, persist=True, persist_pattern=True),
         )
 
     def test_from_response_unknown_is_deny_once(self) -> None:
-        for bad in ("", "a", "approve", "other", "yes", "no"):
+        for bad in ("", "a", "approve", "other", "yes", "no", "7"):
             with self.subTest(bad=bad):
                 self.assertEqual(
                     AuthorizeDecision.from_response(bad),
-                    AuthorizeDecision(allow=False, persist=False),
+                    AuthorizeDecision(allow=False, persist=False, persist_pattern=False),
                 )
 
 

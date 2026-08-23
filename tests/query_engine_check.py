@@ -652,6 +652,99 @@ class TestQueryEngine(unittest.TestCase):
             finally:
                 os.chdir(cwd)
 
+    def test_wildcard_bash_rule_skips_authorize(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cwd = Path.cwd()
+            try:
+                os.chdir(temp_dir)
+                rules_path = Path(".cda/.permission_rules/rules.json")
+                rules_path.parent.mkdir(parents=True, exist_ok=True)
+                import json
+                rules_path.write_text(
+                    json.dumps([{"tool": "bash", "pattern": {"command": "cd *"}, "decision": "allow"}]),
+                    encoding="utf-8",
+                )
+
+                responses = [
+                    ProviderResponse(
+                        ChatMessage("assistant", tool_calls=(ToolCall("call-1", "bash", {"command": "cd /tmp"}),))
+                    ),
+                    ProviderResponse(ChatMessage("assistant", "done")),
+                ]
+                provider = FakeProvider(responses)
+                store = SessionStore(Path(".cda/.sessions"))
+                session_id = store.create()
+                authorized: list[str] = []
+                engine = QueryEngine(
+                    provider,
+                    store,
+                    session_id,
+                    authorize=lambda name, args: (authorized.append(name) or _once(False)),
+                )
+                engine.turn("Change directory")
+
+                self.assertEqual(authorized, [])
+                self.assertFalse(engine.history[2].tool_result.is_error)
+            finally:
+                os.chdir(cwd)
+
+    def test_answer_3_persists_wildcard_rule_and_skips_later_calls(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cwd = Path.cwd()
+            try:
+                os.chdir(temp_dir)
+                store = SessionStore(Path(".cda/.sessions"))
+                session_id = store.create()
+
+                # Turn 1: user chooses option 3 (allow + persist + persist_pattern) for `cd project-folder`
+                responses_1 = [
+                    ProviderResponse(
+                        ChatMessage(
+                            "assistant",
+                            tool_calls=(
+                                ToolCall("call-1", "bash", {"command": "cd project-folder"}),
+                            ),
+                        )
+                    ),
+                    ProviderResponse(ChatMessage("assistant", "done")),
+                ]
+                engine_1 = QueryEngine(
+                    FakeProvider(responses_1),
+                    store,
+                    session_id,
+                    authorize=lambda name, args: AuthorizeDecision(allow=True, persist=True, persist_pattern=True),
+                )
+                engine_1.turn("Enter folder")
+
+                rules_path = Path(".cda/.permission_rules/rules.json")
+                self.assertTrue(rules_path.exists())
+                import json
+                rules = json.loads(rules_path.read_text(encoding="utf-8"))
+                self.assertEqual(rules, [{"tool": "bash", "pattern": {"command": "cd *"}, "decision": "allow"}])
+
+                # Turn 2: another session runs `cd /tmp` -> matches `cd *` rule without asking
+                responses_2 = [
+                    ProviderResponse(
+                        ChatMessage("assistant", tool_calls=(ToolCall("call-2", "bash", {"command": "cd /tmp"}),))
+                    ),
+                    ProviderResponse(ChatMessage("assistant", "done 2")),
+                ]
+                authorized: list[str] = []
+                store_2 = SessionStore(Path(".cda/.sessions"))
+                session_2_id = store_2.create()
+                engine_2 = QueryEngine(
+                    FakeProvider(responses_2),
+                    store_2,
+                    session_2_id,
+                    authorize=lambda name, args: (authorized.append(name) or _once(False)),
+                )
+                engine_2.turn("Enter tmp")
+
+                self.assertEqual(authorized, [])
+                self.assertFalse(engine_2.history[2].tool_result.is_error)
+            finally:
+                os.chdir(cwd)
+
     def test_ac019_different_session_uses_persisted_rule_without_ask(self) -> None:
         # AC-019 / REQ-003, REQ-012, REQ-018 / T-006
         with tempfile.TemporaryDirectory() as temp_dir:

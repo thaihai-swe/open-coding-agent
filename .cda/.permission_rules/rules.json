@@ -159,5 +159,26 @@
       "command": "cd /Users/thaihai-swe/Desktop/open-coding-agent && git stash list 2>/dev/null; echo \"=== git status ===\"; git status --short 2>/dev/null | head; echo \"=== check if .cda in gitignore ===\"; grep -n \"cda\" .gitignore || echo \"NOT FOUND\""
     },
     "decision": "allow"
+  },
+  {
+    "tool": "write_file",
+    "pattern": {
+      "file_path": "*"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "python *"
+    },
+    "decision": "allow"
+  },
+  {
+    "tool": "bash",
+    "pattern": {
+      "command": "python3 *"
+    },
+    "decision": "allow"
   }
 ]

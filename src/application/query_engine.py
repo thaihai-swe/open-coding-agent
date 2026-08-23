@@ -92,8 +92,16 @@ class QueryEngine:
                     continue
                 decision = self.authorize(call.name, call.arguments)
                 if decision.persist:
+                    pattern = (
+                        permission_rules.wildcard_pattern(call.name, call.arguments)
+                        if decision.persist_pattern
+                        else None
+                    )
                     permission_rules.upsert_rule(
-                        call.name, call.arguments, "allow" if decision.allow else "deny"
+                        call.name,
+                        call.arguments,
+                        "allow" if decision.allow else "deny",
+                        pattern=pattern,
                     )
                 if not decision.allow:
                     self.on_event({"type": "tool_denied", "name": call.name, "arguments": call.arguments})

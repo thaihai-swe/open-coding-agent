@@ -7,6 +7,7 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
+from ..tools.permission_rules import wildcard_label
 from ..tools.permissions import AuthorizeDecision, AuthorizeOption
 
 _ENTER = "enter"
@@ -170,12 +171,15 @@ class TerminalUI:
             termios.tcsetattr(fd, termios.TCSADRAIN, saved)
 
     def authorize(self, name: str, arguments: dict[str, Any]) -> AuthorizeDecision:
+        label = wildcard_label(name, arguments)
         prompt = (
             f"Approve {name} {json.dumps(arguments, sort_keys=True)}?\n"
-            f"[{AuthorizeOption.ALLOW_ONCE}] Yes "
-            f"[{AuthorizeOption.ALLOW_ALWAYS}] Yes, don't ask again "
-            f"[{AuthorizeOption.DENY_ONCE}] No "
-            f"[{AuthorizeOption.DENY_ALWAYS}] No, don't ask again: "
+            f"[{AuthorizeOption.ALLOW_ONCE}] Yes\n"
+            f"[{AuthorizeOption.ALLOW_ALWAYS}] Yes, don't ask again\n"
+            f"[{AuthorizeOption.ALLOW_PATTERN}] Yes, don't ask again for \"{label}\"\n"
+            f"[{AuthorizeOption.DENY_ONCE}] No\n"
+            f"[{AuthorizeOption.DENY_ALWAYS}] No, don't ask again\n"
+            f"[{AuthorizeOption.DENY_PATTERN}] No, don't ask again for \"{label}\": "
         )
         return AuthorizeDecision.from_response(self.input_fn(prompt).strip())
 
