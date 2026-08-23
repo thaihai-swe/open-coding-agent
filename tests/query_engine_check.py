@@ -90,8 +90,14 @@ class TestQueryEngine(unittest.TestCase):
             store = SessionStore(temp_dir)
             session_id = store.create()
             events = []
-            engine = QueryEngine(provider, store, session_id, authorize=lambda name, args: _once(False), on_event=events.append)
-            engine.turn("Run command")
+            # Isolate from leftover project `.cda/.permission_rules/rules.json`.
+            original_cwd = os.getcwd()
+            os.chdir(temp_dir)
+            try:
+                engine = QueryEngine(provider, store, session_id, authorize=lambda name, args: _once(False), on_event=events.append)
+                engine.turn("Run command")
+            finally:
+                os.chdir(original_cwd)
 
             self.assertTrue(engine.history[2].tool_result.is_error)
             self.assertEqual(engine.history[2].tool_result.content["error"], "Tool execution denied by user.")
@@ -1198,7 +1204,7 @@ class TestPlanningEngine(unittest.TestCase):
         data = json.loads(Path(".cda/.sessions/s1.json").read_text(encoding="utf-8"))
         self.assertEqual(list(data.keys()), ["messages"])
         self.assertFalse(any(message.get("role") == "system" for message in data["messages"]))
-        self.assertTrue(first.content.startswith(SYSTEM_MESSAGE))
+        self.assertIn(SYSTEM_MESSAGE, first.content)
         self.assertIn("Skills available:\n(no skills found)", first.content)
 
     def test_nag_after_three_text_only_rounds(self) -> None:
@@ -1327,6 +1333,78 @@ class TestPlanningEngine(unittest.TestCase):
         self._write_skill("new-skill", "---\nname: new-skill\ndescription: Fresh\n---\nHi.\n")
         engine.turn("second")
         self.assertIn("- **new-skill**: Fresh", provider.calls[1][0].content)
+
+    def test_assembled_prompt_contains_identity_workspace_security_tools(self) -> None:
+        # AC-001 / REQ-001, REQ-002, REQ-003, REQ-004, REQ-005, REQ-007 / T-002
+        provider = FakeProvider([ProviderResponse(ChatMessage("assistant", "ok"))])
+        engine = self._engine(provider, session_id="s1")
+        engine.turn("Hi")
+        first = provider.calls[0][0]
+        self.assertEqual(first.role, "system")
+        self.assertIn("You are a coding agent.", first.content)
+        self.assertIn("Working directory:", first.content)
+        self.assertIn("You should plan before executing.", first.content)
+        self.assertIn("create_task", first.content)
+        self.assertTrue(
+            "workspace" in first.content.lower() or "working directory" in first.content.lower()
+        )
+        self.assertIn("- bash:", first.content)
+        self.assertIn("Skills available:", first.content)
+        idx_id = first.content.index("You are a coding agent.")
+        idx_ws = first.content.index("Working directory:")
+        idx_pl = first.content.index("You should plan before executing.")
+        idx_sec = first.content.lower().index("security")
+        idx_tls = first.content.index("- bash:")
+        idx_skl = first.content.index("Skills available:")
+        self.assertTrue(idx_id < idx_ws < idx_pl < idx_sec < idx_tls < idx_skl)
+
+    def test_assembled_prompt_includes_agents_md(self) -> None:
+        # AC-005 / REQ-009 / T-002
+        Path("AGENTS.md").write_text("REPO-RULE-ALPHA", encoding="utf-8")
+        provider = FakeProvider([ProviderResponse(ChatMessage("assistant", "ok"))])
+        engine = self._engine(provider, session_id="s1")
+        engine.turn("Hi")
+        first = provider.calls[0][0]
+        self.assertIn("REPO-RULE-ALPHA", first.content)
+        self.assertIn("AGENTS.md", first.content)
+
+    def test_permission_rules_token_not_in_system_prompt(self) -> None:
+        # AC-012 / REQ-008 / T-002
+        rules_path = Path(".cda/.permission_rules/rules.json")
+        rules_path.parent.mkdir(parents=True, exist_ok=True)
+        rules_path.write_text(
+            '[{"tool": "bash", "pattern": {"command": "UNIQUE-RULE-TOKEN"}, "decision": "allow"}]',
+            encoding="utf-8",
+        )
+        provider = FakeProvider([ProviderResponse(ChatMessage("assistant", "ok"))])
+        engine = self._engine(provider, session_id="s1")
+        engine.turn("Hi")
+        first = provider.calls[0][0]
+        self.assertNotIn("UNIQUE-RULE-TOKEN", first.content)
+
+    def test_new_agents_md_appears_on_next_complete(self) -> None:
+        # AC-013 / REQ-013 / T-002
+        provider = FakeProvider([
+            ProviderResponse(ChatMessage("assistant", "one")),
+            ProviderResponse(ChatMessage("assistant", "two")),
+        ])
+        engine = self._engine(provider, session_id="s1")
+        engine.turn("first")
+        self.assertNotIn("NEW-AGENTS-BODY", provider.calls[0][0].content)
+        Path("AGENTS.md").write_text("NEW-AGENTS-BODY", encoding="utf-8")
+        engine.turn("second")
+        self.assertIn("NEW-AGENTS-BODY", provider.calls[1][0].content)
+
+    def test_cda_prompt_override_in_query_engine_complete(self) -> None:
+        override_dir = Path(".cda") / "prompts"
+        override_dir.mkdir(parents=True)
+        (override_dir / "identity.md").write_text("CUSTOM-AGENT-IDENTITY", encoding="utf-8")
+        provider = FakeProvider([ProviderResponse(ChatMessage("assistant", "ok"))])
+        engine = self._engine(provider, session_id="s1")
+        engine.turn("Hi")
+        first = provider.calls[0][0]
+        self.assertIn("CUSTOM-AGENT-IDENTITY", first.content)
+        self.assertNotIn("You are a coding agent.", first.content)
 
 
 if __name__ == "__main__":

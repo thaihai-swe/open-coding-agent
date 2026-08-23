@@ -11,6 +11,17 @@ from unittest.mock import patch
 
 from src.tools import invoke, registry
 from src.tools.permissions import AuthorizeDecision, AuthorizeOption
+from src.tools.prompt import (
+    FALLBACK_SECTIONS,
+    INSTRUCTION_FILENAMES,
+    MAX_FILE_CHARS,
+    MAX_TOTAL_INSTRUCTION_CHARS,
+    assemble_system_prompt,
+    discover_instructions,
+    format_security_section,
+    format_tools_section,
+    load_prompt_section,
+)
 from src.tools.skills import (
     build_system_message,
     expand_slash_prompt,
@@ -532,7 +543,7 @@ class TestSkillDiscovery(unittest.TestCase):
             load_skill_content("missing-skill", skills)
         self.assertIn("Skill not found: missing-skill", str(raised.exception))
         message = build_system_message(skills)
-        self.assertTrue(message.startswith(SYSTEM_MESSAGE))
+        self.assertIn(SYSTEM_MESSAGE, message)
         self.assertIn("Skills available:", message)
         self.assertIn("- **tester**: Tester", message)
 
@@ -589,6 +600,189 @@ class TestSkillDiscovery(unittest.TestCase):
         self.assertIn("Unknown tool: skill", str(res.get("error")))
 
 
+class TestPromptAssembler(unittest.TestCase):
+    def setUp(self) -> None:
+        self._cwd = os.getcwd()
+        self._temp = tempfile.TemporaryDirectory()
+        os.chdir(self._temp.name)
+
+    def tearDown(self) -> None:
+        os.chdir(self._cwd)
+        self._temp.cleanup()
+
+    def test_discover_instructions_order_and_content(self) -> None:
+        # AC-005, AC-016 / REQ-009 / T-001
+        Path("CLAUDE.md").write_text("CLAUDE content", encoding="utf-8")
+        Path("AGENTS.md").write_text("AGENTS content", encoding="utf-8")
+        instructions = discover_instructions(Path.cwd())
+        names = [name for name, _ in instructions]
+        self.assertEqual(names, ["AGENTS.md", "CLAUDE.md"])
+        self.assertEqual(instructions[0], ("AGENTS.md", "AGENTS content"))
+        self.assertEqual(instructions[1], ("CLAUDE.md", "CLAUDE content"))
+
+    def test_discover_instructions_empty_when_no_files(self) -> None:
+        # AC-006 / REQ-012 / T-001
+        instructions = discover_instructions(Path.cwd())
+        self.assertEqual(instructions, [])
+
+    def test_discover_instructions_deduplicates_identical_content(self) -> None:
+        # AC-007 / REQ-010 / T-001
+        Path("AGENTS.md").write_text("DUP-BODY", encoding="utf-8")
+        Path("CLAUDE.md").write_text("DUP-BODY", encoding="utf-8")
+        instructions = discover_instructions(Path.cwd())
+        self.assertEqual(len(instructions), 1)
+        self.assertEqual(instructions[0], ("AGENTS.md", "DUP-BODY"))
+
+    def test_discover_instructions_per_file_capping_4000(self) -> None:
+        # AC-008 / REQ-011 / T-001
+        long_body = "A" * 5000
+        Path("AGENTS.md").write_text(long_body, encoding="utf-8")
+        instructions = discover_instructions(Path.cwd())
+        self.assertEqual(len(instructions), 1)
+        filename, body = instructions[0]
+        self.assertEqual(filename, "AGENTS.md")
+        self.assertTrue(body.startswith("A" * 4000))
+        self.assertIn("TRUNCATED", body)
+        # Ensure raw file text portion is at most 4000
+        self.assertEqual(body[:4000], "A" * 4000)
+
+    def test_discover_instructions_total_capping_12000(self) -> None:
+        # AC-009 / REQ-011 / T-001
+        Path("AGENTS.md").write_text("A" * 4000, encoding="utf-8")
+        Path("CLAUDE.md").write_text("B" * 4000, encoding="utf-8")
+        Path("CLAUDE.local.md").write_text("C" * 5000, encoding="utf-8")
+        instructions = discover_instructions(Path.cwd())
+        self.assertEqual(len(instructions), 3)
+        # First two kept in full (4000 each)
+        self.assertEqual(instructions[0][1], "A" * 4000)
+        self.assertEqual(instructions[1][1], "B" * 4000)
+        # Third file capped to remaining 4000 budget
+        self.assertTrue(instructions[2][1].startswith("C" * 4000))
+        self.assertIn("TRUNCATED", instructions[2][1])
+
+    def test_discover_instructions_unreadable_file_skipped_without_crash(self) -> None:
+        # AC-017 / REQ-009 / T-001
+        # Create unreadable non-utf8 binary file
+        Path("AGENTS.md").write_bytes(b"\xff\xfe\x00\x00\x80\x90")
+        Path("CLAUDE.md").write_text("Valid claude", encoding="utf-8")
+        instructions = discover_instructions(Path.cwd())
+        self.assertEqual(len(instructions), 1)
+        self.assertEqual(instructions[0], ("CLAUDE.md", "Valid claude"))
+
+    def test_format_tools_section_lists_names_and_no_properties(self) -> None:
+        # AC-010 / REQ-007 / T-001
+        text = format_tools_section()
+        self.assertIn("- bash:", text)
+        self.assertIn("- load_skill:", text)
+        self.assertIn("- create_task:", text)
+        self.assertNotIn('"properties"', text)
+
+    def test_format_security_section_mentions_policies(self) -> None:
+        # AC-011 / REQ-008 / T-001
+        text = format_security_section()
+        self.assertTrue(
+            "working directory" in text.lower()
+            or "workspace" in text.lower()
+        )
+        self.assertTrue("deny" in text.lower() or "blocked" in text.lower())
+        self.assertTrue("protected" in text.lower())
+        self.assertTrue("approval" in text.lower() or "authorization" in text.lower())
+
+    def test_assemble_system_prompt_structure_and_order(self) -> None:
+        # AC-004, AC-005, AC-006 / REQ-002, REQ-003, REQ-004, REQ-005 / T-001
+        Path("AGENTS.md").write_text("REPO-RULE-ALPHA", encoding="utf-8")
+        prompt = assemble_system_prompt(cwd=Path.cwd())
+        
+        # Verify identity
+        self.assertIn("You are a coding agent.", prompt)
+        # Verify workspace
+        resolved_cwd = str(Path.cwd().resolve())
+        self.assertIn(f"Working directory: {resolved_cwd}", prompt)
+        # Verify Feature 3 planning
+        self.assertIn(SYSTEM_MESSAGE, prompt)
+        # Verify Security
+        self.assertIn("Security & Permission Policies:", prompt)
+        # Verify Tools
+        self.assertIn("Available tools:", prompt)
+        # Verify Skills
+        self.assertIn("Skills available:", prompt)
+        # Verify Instructions
+        self.assertIn("Instructions:", prompt)
+        self.assertIn("### AGENTS.md", prompt)
+        self.assertIn("REPO-RULE-ALPHA", prompt)
+
+        # Verify ordering: Identity -> Workspace -> Planning -> Security -> Tools -> Skills -> Instructions
+        idx_id = prompt.index("You are a coding agent.")
+        idx_ws = prompt.index("Working directory:")
+        idx_pl = prompt.index(SYSTEM_MESSAGE)
+        idx_sec = prompt.index("Security & Permission Policies:")
+        idx_tls = prompt.index("Available tools:")
+        idx_skl = prompt.index("Skills available:")
+        idx_ins = prompt.index("Instructions:")
+        self.assertTrue(idx_id < idx_ws < idx_pl < idx_sec < idx_tls < idx_skl < idx_ins)
+
+    def test_assemble_system_prompt_omits_instruction_section_when_empty(self) -> None:
+        # AC-006 / REQ-012 / T-001
+        prompt = assemble_system_prompt(cwd=Path.cwd())
+        self.assertNotIn("Instructions:", prompt)
+        self.assertNotIn("### AGENTS.md", prompt)
+
+    def test_load_prompt_section_uses_bundled_defaults(self) -> None:
+        self.assertEqual(
+            load_prompt_section("identity", Path.cwd()),
+            "You are a coding agent. Act, don't explain.",
+        )
+        self.assertEqual(load_prompt_section("planning", Path.cwd()), SYSTEM_MESSAGE)
+        self.assertIn("Security & Permission Policies:", load_prompt_section("security", Path.cwd()))
+
+    def test_load_prompt_section_prefers_project_override(self) -> None:
+        override_dir = Path(".cda") / "prompts"
+        override_dir.mkdir(parents=True)
+        (override_dir / "identity.md").write_text("OVERRIDE-IDENTITY\n", encoding="utf-8")
+        (override_dir / "planning.md").write_text("OVERRIDE-PLANNING", encoding="utf-8")
+        (override_dir / "security.md").write_text("OVERRIDE-SECURITY", encoding="utf-8")
+        self.assertEqual(load_prompt_section("identity", Path.cwd()), "OVERRIDE-IDENTITY")
+        self.assertEqual(load_prompt_section("planning", Path.cwd()), "OVERRIDE-PLANNING")
+        self.assertEqual(load_prompt_section("security", Path.cwd()), "OVERRIDE-SECURITY")
+        prompt = assemble_system_prompt(cwd=Path.cwd())
+        self.assertIn("OVERRIDE-IDENTITY", prompt)
+        self.assertIn("OVERRIDE-PLANNING", prompt)
+        self.assertIn("OVERRIDE-SECURITY", prompt)
+        self.assertNotIn("You are a coding agent.", prompt)
+
+    def test_load_prompt_section_unreadable_override_falls_back(self) -> None:
+        override_dir = Path(".cda") / "prompts"
+        override_dir.mkdir(parents=True)
+        (override_dir / "identity.md").write_bytes(b"\xff\xfe\x00\x00")
+        self.assertEqual(
+            load_prompt_section("identity", Path.cwd()),
+            "You are a coding agent. Act, don't explain.",
+        )
+
+    def test_load_prompt_section_empty_override_falls_back(self) -> None:
+        override_dir = Path(".cda") / "prompts"
+        override_dir.mkdir(parents=True)
+        (override_dir / "identity.md").write_text("\n", encoding="utf-8")
+        self.assertEqual(
+            load_prompt_section("identity", Path.cwd()),
+            FALLBACK_SECTIONS["identity"],
+        )
+
+    def test_load_prompt_section_unknown_name_is_empty(self) -> None:
+        self.assertEqual(load_prompt_section("not-a-section", Path.cwd()), "")
+
+    def test_prompt_override_appears_on_next_assemble_without_restart(self) -> None:
+        first = assemble_system_prompt(cwd=Path.cwd())
+        self.assertIn("You are a coding agent.", first)
+        override_dir = Path(".cda") / "prompts"
+        override_dir.mkdir(parents=True)
+        (override_dir / "identity.md").write_text("MID-SESSION-IDENTITY", encoding="utf-8")
+        second = assemble_system_prompt(cwd=Path.cwd())
+        self.assertIn("MID-SESSION-IDENTITY", second)
+        self.assertNotIn("You are a coding agent.", second)
+
+
 if __name__ == "__main__":
     unittest.main()
+
 

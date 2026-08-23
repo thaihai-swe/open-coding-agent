@@ -29,6 +29,10 @@ Project-wide vocabulary from `/starter-init` (2026-08-22). Domain/product names 
 | `load_skill` | The single LOW Agent tool that returns the full `SKILL.md` content of a skill by name | `4-skills` |
 | skill package | A directory under project `.agents/skills/` or `~/.agents/skills/` that contains `SKILL.md` | `4-skills` |
 | skill slash | REPL input `/<skill-name>` (optional trailing args) that expands that cataloged skill into a turn | `4-skills` |
+| dynamic system prompt | System message assembled at each `complete()` from named sections (identity, workspace, planning, security, tools, skill catalog, optional instruction files) and never stored in session JSON | `5-system-prompt` |
+| prompt section | A named fragment of the system message that is always present or omitted based on real state (files exist, tools registered), not on keywords in the user turn | `5-system-prompt` |
+| instruction file | A project-cwd markdown file (`AGENTS.md`, `CLAUDE.md`, `CLAUDE.local.md`) whose text may be injected into the system message when present | `5-system-prompt` |
+| instruction section | On-demand system-prompt section that concatenates discovered instruction files, with per-file and total character caps and hash dedup | `5-system-prompt` |
 
 ## Technical Terms
 

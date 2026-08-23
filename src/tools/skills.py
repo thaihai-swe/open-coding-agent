@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from .task_board import SYSTEM_MESSAGE as PLANNING_SYSTEM_MESSAGE
+# PLANNING_SYSTEM_MESSAGE kept for callers that import it via this module.
 
 
 def parse_frontmatter(text: str, default_name: str) -> tuple[dict[str, str], str]:
@@ -137,8 +138,9 @@ def load_skill_content(name: str, skills: dict[str, dict[str, Any]] | None = Non
 
 
 def build_system_message(skills: dict[str, dict[str, Any]] | None = None) -> str:
-    catalog = format_catalog(skills)
-    return f"{PLANNING_SYSTEM_MESSAGE}\n\n{catalog}"
+    from .prompt import assemble_system_prompt
+
+    return assemble_system_prompt(skills=skills)
 
 
 def expand_slash_prompt(

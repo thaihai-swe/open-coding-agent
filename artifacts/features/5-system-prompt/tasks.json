@@ -1,0 +1,85 @@
+{
+  "source": "tasks.md",
+  "generated_at": "2026-08-23T21:09:03",
+  "errors": [],
+  "task_count": 3,
+  "tasks": [
+    {
+      "id": "T-001",
+      "header": "- [x] T-001 [US2] [US3] [US4] [US5] `src/tools/prompt.py`, `tests/tools_check.py` \u2014 add `src/tools/prompt.py` with pure stdlib `discover_instructions` (reads cwd `AGENTS.md`, `CLAUDE.md`, `CLAUDE.local.md` in order; skips missing/unreadable without raising; dedups identical content via SHA-256; caps per-file at 4000 chars and total file text at 12000 chars; marks truncated text with `TRUNCATED`), `format_security_section` (mentions workspace bound, hard-deny / deny-list, protected paths/keys, MEDIUM/HIGH approval; excludes rules.json tokens), `format_tools_section` (lists registered tools as `- <name>: <description>`, no schema dump), and `assemble_system_prompt` (assembles identity, workspace with resolved cwd, Feature 3 planning text, security, tools, Feature 4 skill catalog, and on-demand instructions joined by `\\n\\n`); add unit tests in `tests/tools_check.py`.",
+      "status": "Done",
+      "done": true,
+      "depends": [],
+      "evidence": [
+        "`python3 tests/tools_check.py`",
+        "python3 tests/tools_check.py passed 58 tests. Implemented src/tools/prompt.py covering AC-004 through AC-011, AC-016, AC-017."
+      ],
+      "acceptance_criteria": [
+        "AC-005",
+        "AC-017",
+        "AC-004",
+        "AC-009",
+        "AC-008",
+        "AC-007",
+        "AC-011",
+        "AC-016",
+        "AC-010",
+        "AC-006"
+      ]
+    },
+    {
+      "id": "T-002",
+      "header": "- [x] T-002 [US1] [US6] `src/application/query_engine.py`, `src/tools/skills.py`, `tests/query_engine_check.py` \u2014 update `QueryEngine._with_system` to call `prompt.assemble_system_prompt()`; update `skills.build_system_message` to delegate to `assemble_system_prompt`; add/update unit tests in `tests/query_engine_check.py` verifying `complete()` receives full assembled prompt (identity, workspace, planning string, security text, tools list, skill catalog, instructions), empty catalog produces `(no skills found)`, mid-session `AGENTS.md` and skill creation appear on next prompt without restart, permission rules file tokens are not in prompt, and `.cda/.sessions/<id>.json` contains no system role messages.",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-001"
+      ],
+      "evidence": [
+        "`python3 tests/query_engine_check.py`",
+        "QueryEngine._with_system now calls assemble_system_prompt(); skills.build_system_message delegates. T-002 tests: AC-001 assembled prompt order, AC-002 empty catalog, AC-003 no system in session JSON, AC-012 UNIQUE-RULE-TOKEN absent, AC-013 AGENTS.md freshness, AC-014 skill freshness. python3 tests/query_engine_check.py TestPlanningEngine T-002 slice: 6 tests OK."
+      ],
+      "acceptance_criteria": [
+        "AC-013",
+        "AC-003",
+        "AC-002",
+        "AC-001",
+        "AC-012",
+        "AC-014"
+      ]
+    },
+    {
+      "id": "T-003",
+      "header": "- [x] T-003 `src/`, `tests/` \u2014 adjust legacy test assertions in `tests/query_engine_check.py` and `tests/tools_check.py` that asserted `startswith(SYSTEM_MESSAGE)` to assert `assertIn(SYSTEM_MESSAGE, ...)` or check section contents; verify all tools, permissions, task planning, skills, and CLI tests pass without regression.",
+      "status": "Done",
+      "done": true,
+      "depends": [
+        "T-002"
+      ],
+      "evidence": [
+        "`python3 -m compileall -q src` && `python3 -m unittest discover -s tests -p '*_check.py'`",
+        "python3 -m compileall -q src exit 0; python3 -m unittest discover -s tests -p '*_check.py' exit 0; 159 tests OK. Migrated startswith(SYSTEM_MESSAGE) to assertIn. Isolated TestQueryEngine denied-tool cwd from leftover project rules.json. AC-015 covered."
+      ],
+      "acceptance_criteria": [
+        "AC-005",
+        "AC-013",
+        "AC-003",
+        "AC-002",
+        "AC-001",
+        "AC-012",
+        "AC-004",
+        "AC-009",
+        "AC-017",
+        "AC-014",
+        "AC-008",
+        "AC-007",
+        "AC-011",
+        "AC-015",
+        "AC-016",
+        "AC-010",
+        "AC-006"
+      ]
+    }
+  ],
+  "markdown_hash": "947956a07e09ab2545989bdcf436239481995b9a1575ab78176b11df99b50a9b"
+}
