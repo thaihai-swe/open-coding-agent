@@ -14,6 +14,6 @@ Do not hand-edit `- Phase:`. Update progress checkboxes from evidence.
 An advisory `verify` exit code of `0` is not a verification verdict; inspect
 `details.verified`.
 
-- `Done` is mechanically protected: normal closeout must be `skill-exit --skill harness-verify` after a matching successful `verification-runs.json` record and a `## Post-Ship Sync` section in `session-extracts.md`.
-- `review.md`, advisory exit code `0`, and split gate/provider logs do not independently authorize `Done`.
-- Use `--verification-override --override-reason "..."` only for a deliberate, auditable exception; it is never implicit.
+- `Done` is mechanically protected: `skill-exit --skill harness-verify` runs verification inline. It requires a passing current-config result and a `## Post-Ship Sync` section in `session-extracts.md`.
+- `review.md` and advisory `verify` exit code `0` do not independently authorize `Done`.
+- Use `--verification-override --override-reason "..."` only for a deliberate, explicit exception; it is never implicit.

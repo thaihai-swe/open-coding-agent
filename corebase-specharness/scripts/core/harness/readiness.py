@@ -38,7 +38,7 @@ def mechanical_checks(root, feature, phase, skill_name="", target_state=""):
         return failures
 
     if normalized == "plan":
-        from core.handlers.artifacts import check_requirements_readiness
+        from core._lib.artifact_schema import check_requirements_readiness
         readiness = check_requirements_readiness(root, feature)
         if not readiness.get("ok"):
             failures.extend(readiness.get("errors", []) or ["requirements are not ready"])
@@ -55,7 +55,7 @@ def mechanical_checks(root, feature, phase, skill_name="", target_state=""):
             cycle = detect_cycle(tasks)
             if cycle:
                 failures.append("task dependency cycle: " + " -> ".join(cycle))
-            from core.handlers.artifacts import check_requirements_readiness
+            from core._lib.artifact_schema import check_requirements_readiness
             readiness = check_requirements_readiness(root, feature)
             missing = readiness.get("metrics", {}).get("unmapped_criteria", [])
             if missing:

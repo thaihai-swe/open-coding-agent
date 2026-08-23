@@ -7,7 +7,7 @@ from pathlib import Path
 from core._lib.root import resolve_root
 from core._lib.artifacts import canonical_feature_dir
 from core._lib.locking import locked
-from core.context_state import atomic_write
+from core.context_state import atomic_write, session_budget_report
 
 def _resolve_root(args, allow_uninitialized=False):
     root = resolve_root(args.root)
@@ -100,5 +100,42 @@ def _slugify(text):
     text = re.sub(r'[^a-z0-9\s-]', '', text)
     text = re.sub(r'[\s-]+', '-', text)
     return text.strip('-')
+
+
+def session_budget_details(root, feature):
+    """Return session token usage using configured warn/hard thresholds."""
+    if not feature:
+        return {}
+    from core.harness.config import HarnessConfig
+    warn, hard = 40000, 80000
+    config_path = Path(root) / "corebase-specharness/project/harness-config.yaml"
+    if config_path.is_file():
+        try:
+            config = HarnessConfig(config_path)
+            warn = config.session_warn_tokens()
+            hard = config.session_hard_tokens()
+        except Exception:
+            pass
+    return session_budget_report(root, feature, warn_tokens=warn, hard_tokens=hard)
+
+
+def session_budget_warnings(report):
+    """Return human-readable session-budget warnings, if any."""
+    if not report:
+        return []
+    usage = report.get("session_tokens_accumulated") or 0
+    hard = report.get("session_hard_tokens") or 0
+    status = report.get("session_budget_status") or "normal"
+    if status == "breached":
+        return [
+            f"Session token usage ({usage}/{hard}) exceeded the hard budget. "
+            "Run session-end and start a fresh session."
+        ]
+    if status == "warning":
+        return [
+            f"Session token usage ({usage}/{hard}) approaching saturation. "
+            "Run session-end and start a fresh session."
+        ]
+    return []
 
 

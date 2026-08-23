@@ -196,6 +196,7 @@ def check_surface_integrity(root):
         "corebase-specharness/rules/architecture-principles.md",
         "corebase-specharness/rules/headroom.md",
         "corebase-specharness/generated",
+        ".corebase-specharness/generated",
         ".corezero",
     ]
     leftovers = [f"removed leftover remains: {path}" for path in removed if (root / path).exists()]

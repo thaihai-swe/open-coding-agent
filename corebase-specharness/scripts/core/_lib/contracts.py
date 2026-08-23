@@ -37,9 +37,4 @@ def validate_manifest(root):
         for entry in files.get(group, []):
             if not any(token in entry for token in "*?[") and not (root / entry).is_file():
                 failures.append(f"manifest {group} source missing: {entry}")
-    generated = root / ".corebase-specharness/generated"
-    if generated.exists():
-        shipped = [item.name for item in generated.iterdir() if item.is_file() and item.name != ".gitkeep"]
-        if shipped:
-            failures.append("generated runtime state must not ship: " + ", ".join(sorted(shipped)))
     return failures

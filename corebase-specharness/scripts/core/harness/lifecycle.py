@@ -26,7 +26,7 @@ class Phase:
 
 
 class Lifecycle:
-    """Expose canonical phases with optional adopter overrides, without generated state."""
+    """Expose canonical phases with optional adopter overrides."""
     def __init__(self, config):
         self.lifecycle = getattr(config, "lifecycle", None)
         if self.lifecycle is None and isinstance(config, dict):

@@ -75,7 +75,7 @@ This skill is the **sole authority** for validating AC completion and transition
    - Write `## Post-Ship Sync` in `session-extracts.md` (use `no candidates` when none exist). `skill-exit` to `Done` fails without that heading and without `review.md`.
    - Invoke `/context-memory` after `Done` to promote candidate lessons. If the heading is skipped, insert `[:HALT SYNC REQUIRED]` and do not exit to `Done`.
    - Write verdict (`Pass`, `Pass with Follow-Up Debt`, or `Fail`) in `artifacts/features/<slug>/review.md` using `references/review-template.md`.
-   - On a passing verdict, confirm `verify` reports `details.verified: true` and records `.corebase-specharness/generated/verification-runs.json`; then run `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill harness-verify --feature <slug> --handoff context-memory`.
+   - On a passing verdict, confirm `verify` reports `details.verified: true`; then run `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill harness-verify --feature <slug> --handoff context-memory` (which performs inline mechanical verification).
     - If no confirmed gates exist or verification is not true, do not close normally. Use `ChangesRequested`, configure gates, or record a deliberate `--verification-override --override-reason "..."` exception.
    - On a failing verdict run `python3 corebase-specharness/scripts/core/cli.py skill-exit --skill harness-verify --feature <slug> --phase ChangesRequested --handoff spec-implement`.
 

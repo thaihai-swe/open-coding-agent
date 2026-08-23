@@ -4,44 +4,13 @@ from pathlib import Path
 from core._lib.ansi import bar, table
 from core._lib.routing_metadata import skill_route
 from core.context_engine import build_context_pack, extract_section, redact_secrets
-from core.context_state import last_pack_manifest, record_context_pack, session_budget_report
-from core.handlers.common import _resolve_root, _result
-from core.harness.config import HarnessConfig
-
-
-def _session_budget(root, feature):
-    """Return session token usage and warn/hard status for a feature."""
-    if not feature:
-        return {}
-    config_path = Path(root) / "corebase-specharness/project/harness-config.yaml"
-    warn, hard = 40000, 80000
-    if config_path.is_file():
-        try:
-            config = HarnessConfig(config_path)
-            warn = config.session_warn_tokens()
-            hard = config.session_hard_tokens()
-        except Exception:
-            pass
-    return session_budget_report(root, feature, warn_tokens=warn, hard_tokens=hard)
-
-
-def _session_budget_warning(report):
-    if not report:
-        return []
-    usage = report.get("session_tokens_accumulated") or 0
-    hard = report.get("session_hard_tokens") or 0
-    status = report.get("session_budget_status") or "normal"
-    if status == "breached":
-        return [
-            f"Session token usage ({usage}/{hard}) exceeded the hard budget. "
-            "Run session-end and start a fresh session."
-        ]
-    if status == "warning":
-        return [
-            f"Session token usage ({usage}/{hard}) approaching saturation. "
-            "Run session-end and start a fresh session."
-        ]
-    return []
+from core.context_state import last_pack_manifest, record_context_pack
+from core.handlers.common import (
+    _resolve_root,
+    _result,
+    session_budget_details,
+    session_budget_warnings,
+)
 
 
 def _manifest_selected(items):
@@ -67,6 +36,26 @@ def _delta_fields(pack):
     }
 
 
+def _manifest_projection(pack, session_budget, include_reserve=True):
+    """Return the normalized context-manifest dictionary."""
+    manifest = {
+        "skill": pack.get("skill"),
+        "feature": pack.get("feature"),
+        "task": pack.get("task"),
+        "intent": pack.get("intent"),
+        "budget": pack.get("budget"),
+        "estimated_tokens": pack.get("estimated_tokens"),
+        "profile": pack.get("profile"),
+        "budget_categories": pack.get("budget_categories", {}),
+        "tokenizer": pack.get("tokenizer"),
+        **session_budget,
+        **_delta_fields(pack),
+    }
+    if include_reserve:
+        manifest["reserve_tokens"] = pack.get("reserve_tokens")
+    return manifest
+
+
 def _pack(args):
     root = _resolve_root(args)
     route = skill_route(root, args.skill)
@@ -88,7 +77,7 @@ def _pack(args):
     )
     if args.feature and not getattr(args, "dry_run", False):
         record_context_pack(root, args.feature, pack)
-    return root, pack, _session_budget(root, args.feature)
+    return root, pack, session_budget_details(root, args.feature)
 
 
 def context_pack(args):
@@ -104,7 +93,7 @@ def context_pack(args):
         if rows:
             print(table(["Tier", "Score", "Path"], rows))
     warnings = pack["warnings"] + [f"{item['path']}: {item['reason']}" for item in pack["omitted"]]
-    warnings.extend(_session_budget_warning(session_budget))
+    warnings.extend(session_budget_warnings(session_budget))
     return _result(
         "context-pack",
         "ok",
@@ -117,20 +106,7 @@ def context_pack(args):
             "omitted": pack["omitted"],
             "estimated_tokens": pack["estimated_tokens"],
             "budget": pack["budget"],
-            "manifest": {
-                "skill": pack.get("skill"),
-                "feature": pack.get("feature"),
-                "task": pack.get("task"),
-                "intent": pack.get("intent"),
-                "budget": pack.get("budget"),
-                "estimated_tokens": pack.get("estimated_tokens"),
-                "reserve_tokens": pack.get("reserve_tokens"),
-                "profile": pack.get("profile"),
-                "budget_categories": pack.get("budget_categories", {}),
-                "tokenizer": pack.get("tokenizer"),
-                **session_budget,
-                **_delta_fields(pack),
-            },
+            "manifest": _manifest_projection(pack, session_budget, include_reserve=True),
             "dry_run": getattr(args, "dry_run", False),
             **_delta_fields(pack),
         },
@@ -155,26 +131,13 @@ def context_load(args):
                                     (extract_section(text, name) for name in item["sections"]) if section)
         loaded.append({**item, "content": redact_secrets(text or "")})
     warnings = pack["warnings"] + [f"{item['path']}: {item['reason']}" for item in pack["omitted"]]
-    warnings.extend(_session_budget_warning(session_budget))
+    warnings.extend(session_budget_warnings(session_budget))
     details = {
         "selected": loaded,
         "omitted": pack["omitted"], "estimated_tokens": pack["estimated_tokens"],
         "budget": pack["budget"], "phase": pack.get("phase", ""),
         "skill_payload": "",
-        "manifest": {
-            "skill": pack.get("skill"),
-            "feature": pack.get("feature"),
-            "task": pack.get("task"),
-            "intent": pack.get("intent"),
-            "budget": pack.get("budget"),
-            "estimated_tokens": pack.get("estimated_tokens"),
-            "reserve_tokens": pack.get("reserve_tokens"),
-            "profile": pack.get("profile"),
-            "budget_categories": pack.get("budget_categories", {}),
-            "tokenizer": pack.get("tokenizer"),
-            **session_budget,
-            **_delta_fields(pack),
-        },
+        "manifest": _manifest_projection(pack, session_budget, include_reserve=True),
         "dry_run": getattr(args, "dry_run", False),
         **_delta_fields(pack),
     }
@@ -223,7 +186,7 @@ def context_explain(args):
         }
         for item in pack.get("delta_omitted") or []
     )
-    warnings = list(pack["warnings"]) + _session_budget_warning(session_budget)
+    warnings = list(pack["warnings"]) + session_budget_warnings(session_budget)
     return _result(
         "context-explain",
         "ok",
@@ -232,18 +195,7 @@ def context_explain(args):
         warnings,
         findings=findings,
         details={
-            "manifest": {
-                "skill": pack.get("skill"),
-                "feature": pack.get("feature"),
-                "task": pack.get("task"),
-                "intent": pack.get("intent"),
-                "budget": pack.get("budget"),
-                "estimated_tokens": pack.get("estimated_tokens"),
-                "budget_categories": pack.get("budget_categories", {}),
-                "tokenizer": pack.get("tokenizer"),
-                **session_budget,
-                **_delta_fields(pack),
-            },
+            "manifest": _manifest_projection(pack, session_budget, include_reserve=False),
             "selected": _manifest_selected(pack["selected"]),
             "omitted": pack["omitted"],
             **_delta_fields(pack),

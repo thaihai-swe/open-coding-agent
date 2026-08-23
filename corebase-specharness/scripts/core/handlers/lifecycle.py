@@ -1,33 +1,20 @@
 """Lifecycle CLI command handlers: init, status, phase-check, verify."""
 
-import hashlib
-import json
-from datetime import datetime, timezone
+from pathlib import Path
 
 from core._lib.ansi import status_icon, table
 from core._lib.artifacts import canonical_feature_dir, list_features, read_feature_status
 from core._lib.routing_metadata import load_routes
 from core.harness.lifecycle import Lifecycle
-from core.context_state import atomic_write, session_budget_report
-from core.handlers.common import _resolve_root, _result
+from core.context_state import atomic_write
+from core.handlers.common import (
+    _resolve_root,
+    _result,
+    session_budget_details,
+    session_budget_warnings,
+)
 from core.harness.config import HarnessConfig
 from core.harness.readiness import _known_state, check_readiness
-
-
-def _append_generated_record(path, record, limit=50):
-    """Append a bounded JSON audit record, recovering safely from malformed history."""
-    prior = []
-    if path.is_file():
-        try:
-            parsed = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(parsed, list):
-                prior = parsed
-        except (OSError, ValueError):
-            pass
-    prior.append(record)
-    atomic_write(path, json.dumps(prior[-limit:], indent=2) + "\n")
-
-
 
 
 def init(args):
@@ -35,7 +22,7 @@ def init(args):
     root = _resolve_root(args, allow_uninitialized=True)
     directories = [
         "corebase-specharness/memories/repo", "corebase-specharness/memories/domain", "corebase-specharness/project",
-        ".corebase-specharness/generated", "artifacts/features",
+        "artifacts/features",
     ]
     seeds = [
         "corebase-specharness/memories/repo/core-policies.md",
@@ -56,13 +43,7 @@ def init(args):
             if not path.exists():
                 atomic_write(path, f"# {path.stem.replace('-', ' ').title()}\n\n[USER REVIEW NEEDED]\n")
                 writes.append(relative)
-        gitignore = root / ".gitignore"
-        existing = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
-        additions = [".corebase-specharness/generated/*"]
-        missing = [line for line in additions if line not in existing.splitlines()]
-        if missing:
-            atomic_write(gitignore, existing.rstrip() + "\n" + "\n".join(missing) + "\n")
-            writes.append(".gitignore")
+
     initialized = (root / "corebase-specharness/memories/repo/core-policies.md").exists()
     stack_markers = {
         "node": ["package.json"],
@@ -149,28 +130,9 @@ def status(args):
     warnings = [f"Blocker: {slug}" for slug in blockers]
     details = {"features": features, "dry_run": args.dry_run}
     if args.feature:
-        config_path = root / "corebase-specharness/project/harness-config.yaml"
-        warn, hard = 40000, 80000
-        if config_path.is_file():
-            try:
-                config = HarnessConfig(config_path)
-                warn = config.session_warn_tokens()
-                hard = config.session_hard_tokens()
-            except Exception:
-                pass
-        report = session_budget_report(root, args.feature, warn_tokens=warn, hard_tokens=hard)
+        report = session_budget_details(root, args.feature)
         details["session_budget"] = report
-        usage = report.get("session_tokens_accumulated") or 0
-        if report.get("session_budget_status") == "breached":
-            warnings.append(
-                f"Session token usage ({usage}/{hard}) exceeded the hard budget. "
-                "Run session-end and start a fresh session."
-            )
-        elif report.get("session_budget_status") == "warning":
-            warnings.append(
-                f"Session token usage ({usage}/{hard}) approaching saturation. "
-                "Run session-end and start a fresh session."
-            )
+        warnings.extend(session_budget_warnings(report))
     if getattr(args, "next", False):
         if not args.feature:
             raise ValueError("status --next requires --feature")
@@ -227,6 +189,69 @@ def phase_check(args):
     )
 
 
+def run_verification(root, feature, skill="harness-verify", phase="", dry_run=False, fast=False):
+    """Run verification in-memory."""
+    root = Path(root)
+    phase_name = (phase or "").strip()
+    skill_name = (skill or "").strip()
+    if not skill_name and not phase_name:
+        skill_name = "harness-verify"
+    phase_eval = evaluate_phase_check(root, feature, skill=skill_name, phase=phase_name)
+    artifact_eval = evaluate_artifact_check(
+        root, feature, skill=skill_name, phase=phase_name, trace=True
+    )
+    config = HarnessConfig(root / "corebase-specharness/project/harness-config.yaml")
+    enforcement_mode = config.verification_mode()
+    gates = config.get_gates()
+    from core.harness.gates import changed_files_from_git
+    changed_files = changed_files_from_git(root) if fast else None
+    gate_results = [
+        gate.run(str(root), dry_run=dry_run, changed_files=changed_files).to_dict()
+        for gate in gates
+    ]
+    from core.handlers.diagnostics.providers import run_provider
+    provider = run_provider(root, "review", action="run", feature=feature, dry_run=dry_run)
+    provider_details = provider.get("details", {})
+    gates_passed = all(
+        res.get("passed") is True or gate.on_fail != "block"
+        for gate, res in zip(gates, gate_results)
+    )
+    traceability_errors = artifact_eval.get("details", {}).get("traceability_errors", [])
+    provider_required = bool(provider_details.get("required", False))
+    provider_passed = provider["status"] == "ok" or (
+        not provider_required and provider["status"] in {"deferred", "unavailable"}
+    )
+    phase_passed = phase_eval.get("details", {}).get("meets_preconditions", phase_eval["status"] == "ok")
+    artifact_passed = not artifact_eval.get("details", {}).get("validation_errors", artifact_eval["status"] != "failed")
+    static_checks_passed = phase_passed and artifact_passed and not traceability_errors
+    verified = (
+        not dry_run and bool(gates) and static_checks_passed and gates_passed and provider_passed
+    )
+    findings = (
+        phase_eval.get("details", {}).get("mechanical_failures", [])
+        + artifact_eval.get("details", {}).get("validation_errors", [])
+        + traceability_errors
+        + [f"gate failed: {res['name']}" for res in gate_results if res.get("passed") is False]
+        + provider.get("errors", [])
+    )
+    if not gates:
+        findings.append("no confirmed verification gates are configured")
+    return {
+        "verified": verified,
+        "gates_passed": gates_passed,
+        "static_checks_passed": static_checks_passed,
+        "provider_passed": provider_passed,
+        "gates_configured": len(gates),
+        "gate_results": gate_results,
+        "provider": provider,
+        "findings": findings,
+        "traceability_errors": traceability_errors,
+        "enforcement_mode": enforcement_mode,
+        "phase_eval": phase_eval,
+        "artifact_eval": artifact_eval,
+    }
+
+
 def verify(args):
     """Run deterministic verification checks and mechanical gates."""
     root = _resolve_root(args)
@@ -235,69 +260,28 @@ def verify(args):
     if skill and phase_name:
         raise ValueError("--skill and --phase are mutually exclusive")
     compatibility_warning = ""
-    if not skill:
-        phase_name = phase_name or "Verify"
+    if not skill and not phase_name:
+        phase_name = "Verify"
         compatibility_warning = (
             "verify without --skill uses coarse --phase compatibility; "
             "pass --skill for route-scoped readiness and structure"
         )
-    phase = evaluate_phase_check(root, args.feature, skill=skill, phase=phase_name)
-    artifact = evaluate_artifact_check(
-        root, args.feature, skill=skill, phase=phase_name, trace=True
+    outcome = run_verification(
+        root,
+        args.feature,
+        skill=skill,
+        phase=phase_name,
+        dry_run=args.dry_run,
+        fast=bool(getattr(args, "fast", False)),
     )
-    config = HarnessConfig(root / "corebase-specharness/project/harness-config.yaml")
-    enforcement_mode = config.verification_mode()
-    gates = config.get_gates()
-    from core.harness.gates import changed_files_from_git
-    changed_files = changed_files_from_git(root) if getattr(args, "fast", False) else None
-    gate_results = [gate.run(str(root), dry_run=args.dry_run, changed_files=changed_files).to_dict() for gate in gates]
-    from core.handlers.diagnostics.providers import run_provider
-    provider = run_provider(root, "review", action="run", feature=args.feature, dry_run=args.dry_run)
-    provider_details = provider.get("details", {})
-    if not args.dry_run:
-        _append_generated_record(
-            root / ".corebase-specharness/generated/gate-runs.json",
-            {"feature": args.feature, "gates": gate_results},
-        )
-        _append_generated_record(
-            root / ".corebase-specharness/generated/provider-runs.json",
-            {
-                "feature": args.feature,
-                "category": "review",
-                "provider": {
-                    "status": provider["status"],
-                    "active": provider_details.get("active"),
-                    "mode": provider_details.get("mode"),
-                    "executed": provider_details.get("executed"),
-                    "required": provider_details.get("required"),
-                    "errors": provider.get("errors", []),
-                },
-            },
-        )
-    gates_passed = all(
-        res.get("passed") is True or gate.on_fail != "block"
-        for gate, res in zip(gates, gate_results)
-    )
-    traceability_errors = artifact.get("details", {}).get("traceability_errors", [])
-
-    provider_required = bool(provider_details.get("required", False))
-    provider_executed = bool(provider_details.get("executed", False))
-    provider_passed = provider["status"] == "ok" or (
-        not provider_required and provider["status"] in {"deferred", "unavailable"}
-    )
-    phase_passed = phase.get("details", {}).get("meets_preconditions", phase["status"] == "ok")
-    artifact_passed = not artifact.get("details", {}).get("validation_errors", artifact["status"] != "failed")
-    static_checks_passed = phase_passed and artifact_passed and not traceability_errors
-    verified = (
-        not args.dry_run and bool(gates) and static_checks_passed and gates_passed and provider_passed
-    )
-    findings = (
-        phase.get("details", {}).get("mechanical_failures", [])
-        + artifact.get("details", {}).get("validation_errors", [])
-        + traceability_errors
-        + [f"gate failed: {res['name']}" for res in gate_results if res.get("passed") is False]
-        + provider.get("errors", [])
-    )
+    enforcement_mode = outcome["enforcement_mode"]
+    verified = outcome["verified"]
+    findings = outcome["findings"]
+    traceability_errors = outcome["traceability_errors"]
+    phase = outcome["phase_eval"]
+    artifact = outcome["artifact_eval"]
+    gate_results = outcome["gate_results"]
+    provider = outcome["provider"]
     dry_run_warning = "dry-run: gates were not executed; no verification verdict issued"
     details = {
         "skill": skill or None,
@@ -309,7 +293,7 @@ def verify(args):
         "enforcement_mode": enforcement_mode,
         "verification_mode": enforcement_mode,
         "dry_run": bool(args.dry_run),
-        "would_pass_static_checks": bool(args.dry_run) and static_checks_passed,
+        "would_pass_static_checks": bool(args.dry_run) and outcome["static_checks_passed"],
         "verified": verified,
         "passed": verified,
         "summary": (
@@ -328,38 +312,26 @@ def verify(args):
             )
         ),
     }
-    if not gates:
-        findings.append("no confirmed verification gates are configured")
+    if outcome["gates_configured"] == 0:
         details["summary"] = (
             "NOT VERIFIED — no confirmed verification gates are configured. "
             "Run /starter-init or use an explicit reasoned closeout override."
         )
     details["verdict"] = "VERIFIED" if verified else ("DRY RUN — NO VERDICT" if args.dry_run else "NOT VERIFIED")
-    if not args.dry_run:
-        config_path = root / "corebase-specharness/project/harness-config.yaml"
-        record = {
-            "recorded_at": datetime.now(timezone.utc).isoformat(),
-            "feature": args.feature,
-            "scope": {"skill": skill or None, "phase": phase_name or None},
-            "verified": verified,
-            "verification_mode": enforcement_mode,
-            "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),
-            "static_checks_passed": static_checks_passed,
-            "gates_configured": len(gates),
-            "gates_passed": gates_passed,
-            "provider_passed": provider_passed,
-            "findings": findings,
-        }
-        _append_generated_record(root / ".corebase-specharness/generated/verification-runs.json", record)
-        details["evidence_record"] = record
     if args.dry_run:
         details["warnings"] = [dry_run_warning]
     if not getattr(args, "json", False):
+        provider_details = provider.get("details", {})
+        provider_executed = bool(provider_details.get("executed", False))
+        provider_passed = outcome["provider_passed"]
         provider_label = (
             "pass" if provider_passed and provider_executed
             else "skipped (not configured)" if provider["status"] in {"deferred", "unavailable"} and not provider_executed
             else "fail"
         )
+        phase_passed = outcome["static_checks_passed"]
+        artifact_passed = not artifact.get("details", {}).get("validation_errors", artifact["status"] != "failed")
+        gates_passed = outcome["gates_passed"]
         rows = [
             ["phase-check", status_icon("pass" if phase_passed else "fail"), "pass" if phase_passed else "incomplete"],
             ["artifact-check", status_icon("pass" if artifact_passed else "fail"), "pass" if artifact_passed else "incomplete"],

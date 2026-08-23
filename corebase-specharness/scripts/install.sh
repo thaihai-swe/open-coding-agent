@@ -142,13 +142,11 @@ log "Installing CoreBase SpecHarness v$manifest_version (overwrite files: $overw
 copy_group overwrite overwrite
 copy_group copyIfMissing seed
 if ! $dry_run; then
-  mkdir -p "$target/.corebase-specharness/generated"
-  touch "$target/.corebase-specharness/generated/.gitkeep"
   chmod +x "$target/corebase-specharness/scripts/install.sh" "$target/corebase-specharness/scripts/validate-static-audit.py"
   python3 "$target/corebase-specharness/scripts/core/cli.py" doctor --root "$target" --json >/dev/null
 fi
 log "Installed embedded runtime: python3 corebase-specharness/scripts/core/cli.py"
 log "Upgrade report: refreshed $overwrite_count kit-owned files; preserved $preserved_count adopter-owned seeds."
-log "harness-config.yaml, memories, feature artifacts, sessions, and generated state are not replaced."
+log "harness-config.yaml, memories, feature artifacts, and sessions are not replaced."
 log "Next (new/untailored repo): run /starter-init before delivery skills."
 log "Next (tailored upgrade): invoke the appropriate named delivery skill directly."

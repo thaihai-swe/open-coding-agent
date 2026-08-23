@@ -1,7 +1,5 @@
 """Skill envelope: status-set, skill-enter, skill-exit."""
 
-import hashlib
-import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -90,42 +88,28 @@ def _missing_writes(root, feature, writes):
 
 
 def _done_authorization(root, feature, override=False, override_reason=""):
-    """Return recorded verification or deliberate override authorizing Done."""
+    """Authorize Done via inline verification or an explicit override."""
     if override:
         if not override_reason.strip():
             return None, "--verification-override requires --override-reason"
-        record = {"recorded_at": datetime.now(timezone.utc).isoformat(), "feature": feature, "authorization": "explicit_override", "reason": override_reason.strip()}
-        path = root / ".corebase-specharness/generated/closeout-overrides.json"
-        prior = []
-        if path.is_file():
-            try:
-                prior = json.loads(path.read_text(encoding="utf-8"))
-                if not isinstance(prior, list): prior = []
-            except (OSError, ValueError):
-                prior = []
-        prior.append(record)
-        atomic_write(path, json.dumps(prior[-50:], indent=2) + "\n")
+        record = {
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+            "feature": feature,
+            "authorization": "explicit_override",
+            "reason": override_reason.strip(),
+        }
         return record, None
-    path = root / ".corebase-specharness/generated/verification-runs.json"
-    if not path.is_file():
-        legacy_path = root / "corebase-specharness/generated/verification-runs.json"
-        if legacy_path.is_file():
-            path = legacy_path
-        else:
-            return None, "Done requires a successful non-dry-run verification record; run verify --skill harness-verify or provide an explicit override"
-    try:
-        records = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None, "Done requires a readable verification-runs.json record"
-    if not isinstance(records, list):
-        return None, "Done requires verification-runs.json to be a JSON array"
-    fingerprint = hashlib.sha256((root / "corebase-specharness/project/harness-config.yaml").read_bytes()).hexdigest()
-    for record in reversed(records):
-        if not isinstance(record, dict) or record.get("feature") != feature: continue
-        if record.get("verified") is not True or record.get("config_sha256") != fingerprint: continue
-        if (record.get("scope") or {}).get("skill") != "harness-verify": continue
-        return record, None
-    return None, "Done requires a successful current-config verify --skill harness-verify record or an explicit override"
+    from core.handlers.lifecycle import run_verification
+    outcome = run_verification(root, feature, skill="harness-verify", dry_run=False)
+    if not outcome.get("verified"):
+        errors = outcome.get("findings") or ["Inline verification failed"]
+        return None, f"Done requires passing verification: {'; '.join(errors)}"
+    return {
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "feature": feature,
+        "authorization": "inline_verification",
+        "verified": True,
+    }, None
 
 
 def apply_status(root, feature, target, next_step="", dry_run=False, verification_override=False, override_reason="", source_skill=""):
